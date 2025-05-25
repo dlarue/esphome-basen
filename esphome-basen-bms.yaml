@@ -100,10 +100,10 @@ ota:
   platform: esphome
 
 logger:
-  level: DEBUG
+  level: INFO
+  baud_rate: 0
 
 api:
-
 
 basen_controller:
   - uart_id: uart_esp_1
@@ -113,10 +113,10 @@ basen_controller:
 basen_bms:
   - address: 0x01
     id: basen_bms1
-    update_interval: 10s
+    update_interval: 5s
   - address: 0x02
     id: basen_bms2
-    update_interval: 10s
+    update_interval: 5s
     
 # +--------------------------------------+
 # | Component entities                   |
@@ -214,6 +214,17 @@ sensor:
     delta_cell_voltage:
       name: "${name} 2 delta cell voltage"
 
+  - platform: debug
+    free:
+      name: ${name} Heap free
+      id: esp32_heap_free
+    block:
+      name: ${name} Heap max block
+      id: esp32_heap_max_block
+    loop_time:
+      name: ${name} Loop time
+      id: esp32_loop_time
+
 text_sensor:
  - platform: basen_bms
    basen_bms_id: basen_bms1
@@ -237,3 +248,14 @@ text_sensor:
    status_bitmask:
      id: status_bitmap2
      name: "${name} 2 Status bitmap"
+
+ - platform: debug
+   device:
+     name: ${name} Device info
+     id: esp32_device_info
+   reset_reason:
+     name: ${name} Reset reason
+     id: esp32_reset_reason
+    
+debug:
+  update_interval: 5s
