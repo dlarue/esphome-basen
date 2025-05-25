@@ -14,6 +14,70 @@ static const uint8_t EOI = 0x0D;
 #define COMMAND_BMS_VERSION 0x33
 #define COMMAND_BARCODE 0x42
 
+static struct {
+  uint8_t     offset;
+  uint8_t     bit;
+  const char  *message;
+} status_messages[] = {
+  {0, 0x08, "Cell voltage low fault"},
+  {0, 0x10, "Voltage line break"},
+  {0, 0x20, "Charge MOS fault"},
+  {0, 0x40, "Dischare MOS fault"},
+  {0, 0x80, "Voltage sensor fault"},
+  {1, 0x01, "NTC disconnection"},
+  {1, 0x02, "ADC MOD fault"},
+  {1, 0x02, "ADC MOD fault"},
+  {1, 0x04, "Reverse battery"},
+  {1, 0x08, "Hot failure"},
+  {1, 0x10, "Battery locked"},
+  {1, 0x20, "Communication timeout"},
+  {1, 0x40, "SN code failure"},
+  {1, 0x80, "Secondary trip protection"},
+  {2, 0x01, "DISC_OV_TEMP_Protection"},
+  {2, 0x02, "DISC_UN_TEMP_Protection"},
+  {2, 0x40, "536_COM_Timeout"},
+  {3, 0x01, "Charging"},
+  {3, 0x02, "Discharging"},
+  {3, 0x04, "Short Circuit Protection"},
+  {3, 0x08, "Overcurrent Protection"},
+  {3, 0x40, "CHG_OV_TEMP_Protection"},
+  {3, 0x80, "CHG_UN_TEMP_Protection"},
+  {4, 0x01, "Ambient_Low_TEMP_Protection"},
+  {4, 0x02, "ENV_High_TEMP_Protection"},
+  {4, 0x10, "SOC Low protect"},
+  {5, 0x01, "Manual_CHG_MOS_Open"},
+  {5, 0x02, "Manual_CHG_MOS_Off"},
+  {5, 0x04, "Manual_DISC_MOS_Open"},
+  {5, 0x08, "Manual_DISC_MOS_Off"},
+  {5, 0x10, "Heating pad"},
+  {5, 0x20, "MOSFET_OV_TEMP_Protection"},
+  {5, 0x40, "MOSFET_LO_TEMP_Protection"},
+  {5, 0x80, "CHG_Open_TEMP_Too_Low"},
+  {7, 0x01, "SOC_Low_Alarm2"},
+  {7, 0x02, "Vibration Alarm"},
+  {7, 0x04, "Waiting to recharge during a break"},
+  {7, 0x08, "Aerosol fault"},
+  {7, 0x10, "SOH Low Alarm"},
+  {7, 0x20, "NTC short circuit"},
+  {7, 0x40, "Temp_Diff Alarm"},
+  {7, 0x80, "System Lock"},
+  {8, 0x01, "AMB_Over_TEMP_Alarm"},
+  {8, 0x02, "AMB_Low_TEMP_Alarm"},
+  {8, 0x04, "MOS_Over_TEMP_Alarm"},
+  {8, 0x08, "SOC_Low_Alarm"},
+  {8, 0x10, "Vol_DIF_Alarm"},
+  {8, 0x20, "BAT_DISC_Over_TEMP_Alarm"},
+  {8, 0x40, "BAT_DISC_Low_TEMP_Alarm"},
+  {9, 0x01, "Cell_Over_VOL_Alarm"},
+  {9, 0x02, "Cell_Low_VOL_Alarm"},
+  {9, 0x04, "Pack_Over_VOL_Alarm"},
+  {9, 0x08, "Pack_Low_VOL_Alarm"},
+  {9, 0x10, "CHG_Over_CUR_Alarm"},
+  {9, 0x20, "DISC_Over_CURR_Alarm"},
+  {9, 0x40, "BAT_CHG_Over_TEMP_Alarm"},
+  {9, 0x80, "BAT_CHG_Low_TEMP_Alarm"},
+};
+
 void BasenController::dump_config() {
   ESP_LOGCONFIG(TAG, "Basen:");
 
@@ -504,6 +568,19 @@ void BasenBMS::publish_status()
 
   status_bitmask[sizeof (this->status_bitmask_)*3 - 1] = '\0';
   this->status_bitmask_sensor_->publish_state(status_bitmask);
+
+  // Create status message
+  std::string status_message;
+
+  for (uint8_t i = 0; i < sizeof(status_messages) / sizeof(status_messages[0]); i++) {
+    if (this->status_bitmask_[status_messages[i].offset] & status_messages[i].bit) {
+      if (!status_message.empty())
+        status_message += ", ";
+      status_message += status_messages[i].message;
+    }
+  }
+
+  this->status_sensor_->publish_state(status_message);
 }
 
 void BasenBMS::publish()

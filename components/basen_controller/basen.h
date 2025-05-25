@@ -74,6 +74,9 @@ class BasenBMS : public PollingComponent {
   void set_status_bitmask_text_sensor(text_sensor::TextSensor *sensor) {
     status_bitmask_sensor_ = sensor;
   }
+  void set_status_text_sensor(text_sensor::TextSensor *sensor) {
+    status_sensor_ = sensor;
+  }
 
   void set_connected_binary_sensor(binary_sensor::BinarySensor *binary_sensor) {
     connected_binary_sensor_ = binary_sensor;
@@ -154,7 +157,6 @@ class BasenBMS : public PollingComponent {
   // Sensors
   text_sensor::TextSensor *bms_version_text_sensor_{nullptr};
   text_sensor::TextSensor *barcode_text_sensor_{nullptr};
-  text_sensor::TextSensor *status_bitmask_sensor_{nullptr};
   binary_sensor::BinarySensor *connected_binary_sensor_{nullptr};
   
   // Sensors for BMS data
@@ -197,6 +199,8 @@ private:
   sensor::Sensor *max_cell_index_sensor_{nullptr};
   sensor::Sensor *delta_cell_voltage_sensor_{nullptr};
   sensor::Sensor *temperature_sensor_[6]{nullptr};
+  text_sensor::TextSensor *status_bitmask_sensor_{nullptr};
+  text_sensor::TextSensor *status_sensor_{nullptr};
 };
 
 }  // namespace basen
