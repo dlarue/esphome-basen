@@ -97,8 +97,8 @@ void BasenController::uart_loop() {
         }
         ESP_LOGD(TAG, "Bus is idle");
         this->state_ = STATE_IDLE;
-        return;
       }
+      return;
     case STATE_IDLE:
       // Start sending commands
       this->update_device();
