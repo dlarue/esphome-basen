@@ -79,9 +79,28 @@ static struct {
 };
 
 void BasenController::dump_config() {
-  ESP_LOGCONFIG(TAG, "Basen:");
+  ESP_LOGI(TAG, "Basen:");
+
+  for (auto &device : this->devices_) {
+    ESP_LOGI(TAG, " Device %02X:", device->address_);
+    ESP_LOGI(TAG, "  Timeout count: %d", device->timeout_count_);
+  }
 
   check_uart_settings(9600);
+}
+
+void BasenController::set_state(uint8_t state)
+{
+  if (state > STATE_RX_DATA) {
+    ESP_LOGW(TAG, "Invalid state %d", state);
+    return;
+  }
+
+  if (this->state_ == state)
+    return;
+
+  // Change state
+  this->state_ = state;
 }
 
 bool BasenController::empty_rx (void) {
@@ -121,10 +140,32 @@ void BasenController::send_command(BasenBMS *BMS, const uint8_t command) {
   data[4] = this->checksum(data, 4);
 
   write_array(data, sizeof(data));
-  this->state_ = STATE_COMMAND_TX;
+  
   memcpy(this->header_, data, sizeof(header_));
-  BMS->last_transmission_ = millis();
-  ESP_LOGD(TAG, "Sending command: %02X %02X %02X %02X %02X %02X", data[0], data[1], data[2], data[3], data[4], data[5]);
+
+  ESP_LOGV(TAG, "Sending command: %02X %02X %02X %02X %02X %02X", data[0], data[1], data[2], data[3], data[4], data[5]);
+
+  uint32_t now = millis();
+  this->last_command_ = now;
+  BMS->last_transmission_ = now;
+
+  set_state (STATE_COMMAND_TX);
+}
+
+void BasenController::check_timeout (int available_bytes)
+{
+  // Check for timeout while waiting for data
+  uint32_t now = millis();
+  uint32_t elapsed = now - current_->last_transmission_;
+  if (elapsed > timeout_) {
+    // Timeout while waiting for data.
+    ESP_LOGW(TAG, "Timeout (%d ms) while waiting for data (%d < %d) for address %02X", elapsed, available_bytes, this->data_required_, current_->address_);
+    current_->timeout_count_++;
+    current_->connected_binary_sensor_->publish_state(false);
+    current_->state_ = BasenBMS::BMS_STATE_DONE;  // Mark as finished
+    current_ = NULL;  // Reset current device
+    set_state (STATE_BUS_CHECK);
+  }
 }
 
 void BasenController::update_device ()
@@ -132,13 +173,20 @@ void BasenController::update_device ()
   if (current_ == NULL)
     return;
 
+  // Keep minimum delay between commands
+  uint32_t now = millis();
+  if ((now - this->last_command_) < this->command_delay_) {
+    // Wait for the next command
+    return;
+  }
+
   if (!current_->bms_version_text_sensor_->has_state()) {
     // Get BMS version
     this->send_command(current_, COMMAND_BMS_VERSION);
   } else if (!current_->barcode_text_sensor_->has_state()) {
     // Get barcode
     this->send_command(current_, COMMAND_BARCODE);
-  } else if ((millis()-current_->last_transmission_) > 1000) {
+  } else if ((now-current_->last_transmission_) > 1000) {
     // Get info
     this->send_command(current_, COMMAND_INFO);
   }
@@ -160,7 +208,7 @@ void BasenController::uart_loop() {
           return;
         }
         ESP_LOGD(TAG, "Bus is idle");
-        this->state_ = STATE_IDLE;
+        set_state (STATE_IDLE);
       }
       return;
     case STATE_IDLE:
@@ -169,7 +217,7 @@ void BasenController::uart_loop() {
       return;
     case STATE_COMMAND_TX:
       // Command was sent, wait for response
-      this->state_ = STATE_RX_HEADER;
+      set_state (STATE_RX_HEADER);
       // Minimum 6 bytes response
       this->data_required_ = 6;
       return;
@@ -177,22 +225,16 @@ void BasenController::uart_loop() {
     case STATE_RX_DATA:
       if (current_ == NULL) {
         ESP_LOGW(TAG, "No device updating, cannot receive data");
-        this->state_ = STATE_BUS_CHECK;
+        set_state (STATE_BUS_CHECK);
         return;
       }
       break;
   }
 
   // Check if we have received the data
-  if (available() < this->data_required_) {
-    if (millis() - current_->last_transmission_ >= timeout_) {
-      // Timeout while waiting for data.
-      ESP_LOGW(TAG, "Timeout while waiting for data for address %02X", current_->address_);
-      current_->connected_binary_sensor_->publish_state(false);
-      current_->state_ = BasenBMS::BMS_STATE_DONE;  // Mark as finished
-      current_ = NULL;  // Reset current device
-      this->state_ = STATE_BUS_CHECK;
-    }
+  int available_bytes = available();
+  if (available_bytes < this->data_required_) {
+    check_timeout(available_bytes);
     return;
   }
 
@@ -200,11 +242,12 @@ void BasenController::uart_loop() {
     // Get first four bytes
     uint8_t header[4] = {0};
     read_array(header, sizeof(header));
-    ESP_LOGD(TAG, "Received header: %02X %02X %02X %02X", header[0], header[1], header[2], header[3]);
+    ESP_LOGV(TAG, "Received header: %02X %02X %02X %02X", header[0], header[1], header[2], header[3]);
 
     if (header[0] != SOI || header[1] != this->header_[1] || header[2] != this->header_[2]) {
-        ESP_LOGW(TAG, "Header does not match expected values");
-        this->state_ = STATE_BUS_CHECK;
+        ESP_LOGW(TAG, "Header does not match expected values: %02X %02X %02X != %02X %02X %02X", 
+                 header[0], header[1], header[2], this->header_[0], this->header_[1], this->header_[2]);
+        set_state (STATE_BUS_CHECK);
         return;
     }
 
@@ -218,7 +261,7 @@ void BasenController::uart_loop() {
 
       if (tail[1] != EOI) {
         ESP_LOGW(TAG, "Invalid tail");
-        this->state_ = STATE_BUS_CHECK;
+        set_state (STATE_BUS_CHECK);
       }
 
       return;
@@ -227,7 +270,7 @@ void BasenController::uart_loop() {
     if (length > 0xF0) {
       // Invalid length
       ESP_LOGW(TAG, "Invalid length");
-      this->state_ = STATE_BUS_CHECK;
+      set_state (STATE_BUS_CHECK);
       return;
     }
 
@@ -235,7 +278,7 @@ void BasenController::uart_loop() {
     this->data_required_ = length + 2;  // Length + checksum + EOI
 
     memcpy(this->header_, header, sizeof(header_));
-    state_ = STATE_RX_DATA;
+    set_state (STATE_RX_DATA);
 
     // Return here to keep loop time short
     return;
@@ -258,7 +301,7 @@ void BasenController::uart_loop() {
     uint8_t error[3] = {0};
     read_array(error, sizeof(error));
     ESP_LOGW(TAG, "Received error: %02X %02X %02X", error[0], error[1], error[2]);
-    this->state_ = STATE_BUS_CHECK;
+    set_state (STATE_BUS_CHECK);
     return;
   }
 
@@ -278,7 +321,7 @@ void BasenController::uart_loop() {
   // Check EOI
   if (frame[framesize - 1] != EOI) {
     ESP_LOGW(TAG, "Invalid EOI byte: %02X", frame[framesize - 1]);
-    this->state_ = STATE_BUS_CHECK;
+    set_state (STATE_BUS_CHECK);
     return;
   }
 
@@ -287,14 +330,14 @@ void BasenController::uart_loop() {
 
   if (checksum != data[header_[3]]) {
     ESP_LOGW(TAG, "Checksum mismatch: %02X != %02X", checksum, data[header_[3]]);
-    this->state_ = STATE_BUS_CHECK;
+    set_state (STATE_BUS_CHECK);
     return;
   }
   
   // Handle data
   handle_data (header_, data, header_[3]);
 
-  this->state_ = STATE_IDLE;
+  set_state (STATE_IDLE);
 }
 
 void BasenController::queue_device(BasenBMS *device) {
@@ -305,7 +348,7 @@ void BasenController::queue_device(BasenBMS *device) {
   // No, set current device
   device->state_ = BasenBMS::BMS_STATE_UPDATING;
   current_ = device;
-  ESP_LOGD(TAG, "Active device with address %02X", device->address_);
+  ESP_LOGV(TAG, "Active device with address %02X", device->address_);
 }
 
 void BasenController::loop() {
@@ -319,7 +362,7 @@ void BasenController::loop() {
       current_->state_= BasenBMS::BMS_STATE_IDLE;
       current_ = NULL;
     }
-    state_ = STATE_BUS_CHECK;
+    set_state (STATE_BUS_CHECK);
     return;
   }
 
@@ -350,7 +393,7 @@ void BasenController::loop() {
         device->state_ = BasenBMS::BMS_STATE_IDLE;
     }
   }
-  
+
   // Call the UART loop
   uart_loop();
 }
@@ -383,7 +426,7 @@ uint8_t BasenController::handle_cell_voltages (const uint8_t *data, uint8_t leng
     uint16_t cell_voltage = (data[i*2 + 1] << 8) | data[i*2 + 2];
     // Convert to V
     float voltage_V = cell_voltage / 1000.0f;
-    ESP_LOGD(TAG, "Cell %d voltage: %.3f V", i + 1, voltage_V);
+    ESP_LOGV(TAG, "Cell %d voltage: %.3f V", i + 1, voltage_V);
 
     // Update average, min and max voltages
     cell_avg_voltage += voltage_V;
@@ -505,7 +548,7 @@ void BasenController::handle_info (const uint8_t *data, uint8_t length) {
         current_->soh_ = data16 / 100.0f;
         break;
       default:        
-        ESP_LOGD(TAG, "Data type %02X with count %d", type, count);
+        ESP_LOGV(TAG, "Data type %02X with count %d", type, count);
     }
 
     // Advance to next data type
@@ -578,6 +621,10 @@ void BasenBMS::publish_status()
         status_message += ", ";
       status_message += status_messages[i].message;
     }
+  }
+
+  if (status_message.empty()) {
+    status_message = "Idle";
   }
 
   this->status_sensor_->publish_state(status_message);

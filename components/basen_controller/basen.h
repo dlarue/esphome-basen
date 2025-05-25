@@ -25,6 +25,7 @@ class BasenController : public uart::UARTDevice, public Component {
   float get_setup_priority() const override { return setup_priority::DATA; }
 
  protected:
+  void set_state(uint8_t state);
   bool empty_rx (void);
   uint8_t checksum (const uint8_t *data, uint8_t len);
   void send_command(BasenBMS *BMS, const uint8_t command);
@@ -33,8 +34,10 @@ class BasenController : public uart::UARTDevice, public Component {
   uint8_t handle_cell_voltages(const uint8_t *data, uint8_t length);
   void queue_device(BasenBMS *bms);
   void update_device();
+  void check_timeout(int available_bytes);
   void uart_loop();
 
+  // Controller state machine
   enum {
     STATE_BUS_CHECK = 0,
     STATE_IDLE,
@@ -44,16 +47,17 @@ class BasenController : public uart::UARTDevice, public Component {
   };
 
   uint8_t state_{STATE_BUS_CHECK};
+
   uint8_t header_[4]{0};
   uint8_t data_required_{0};
-  uint8_t address_{1};
 
   bool enable_{false};
-  bool publishing_{true};
   uint32_t last_bus_check_{0};
-  uint32_t last_publish_{0};
+  uint32_t last_command_{0};
   uint32_t throttle_{0};
-  uint32_t timeout_{2000};  // Timeout for command response in ms
+
+  uint16_t command_delay_{100};  // Delay between commands in ms
+  uint16_t timeout_{2000};       // Timeout for command response in ms
 
   std::vector<BasenBMS *> devices_;
   BasenBMS *current_{nullptr};  // Pointer to the currently processing BMS
@@ -143,6 +147,7 @@ class BasenBMS : public PollingComponent {
  protected:
   friend BasenController;
   uint8_t address_{1};
+  uint16_t timeout_count_{0};
 
   enum {
     BMS_STATE_IDLE = 0,
