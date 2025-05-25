@@ -125,7 +125,7 @@ void BasenController::uart_loop() {
       // Timeout while waiting for data.
       ESP_LOGW(TAG, "Timeout while waiting for data for address %02X", current_->address_);
       current_->connected_binary_sensor_->publish_state(false);
-      current_->update_ = 3;  // Mark as finished
+      current_->state_ = BasenBMS::BMS_STATE_DONE;  // Mark as finished
       current_ = NULL;  // Reset current device
       this->state_ = STATE_BUS_CHECK;
     }
@@ -172,6 +172,9 @@ void BasenController::uart_loop() {
 
     memcpy(this->header_, header, sizeof(header_));
     state_ = STATE_RX_DATA;
+
+    // Return here to keep loop time short
+    return;
   }
 
   if (available () < this->data_required_) {
@@ -236,7 +239,7 @@ void BasenController::queue_device(BasenBMS *device) {
     return;
 
   // No, set current device
-  device->update_ = 2;
+  device->state_ = BasenBMS::BMS_STATE_UPDATING;
   current_ = device;
   ESP_LOGD(TAG, "Active device with address %02X", device->address_);
 }
@@ -249,7 +252,7 @@ void BasenController::loop() {
   if (!enable_) {
     if (current_ != NULL) {
       // Reset current device
-      current_->update_ = 0;
+      current_->state_= BasenBMS::BMS_STATE_IDLE;
       current_ = NULL;
     }
     state_ = STATE_BUS_CHECK;
@@ -260,18 +263,27 @@ void BasenController::loop() {
 
   // Check which devices need an update
   for (auto &device : this->devices_) {
-    if (device->update_ == 1) {
-      // Update this device
-      queue_device(device);
-      found++;
+    switch (device->state_) {
+      default:
+        // Device is idle, nothing to do
+        break;
+      case BasenBMS::BMS_STATE_WANT_UPDATE:
+        // Update this device
+        queue_device(device);
+        found++;
+        break;
+      case BasenBMS::BMS_STATE_PUBLISH:
+        device->publish();
+        // Keep the loop time low
+        return;
     }
   }
 
   if (!found) {
     // Remove finished devices
     for (auto &device : this->devices_) {
-      if (device->update_ == 3)
-        device->update_ = 0;
+      if (device->state_ == BasenBMS::BMS_STATE_DONE)
+        device->state_ = BasenBMS::BMS_STATE_IDLE;
     }
   }
   
@@ -327,12 +339,11 @@ uint8_t BasenController::handle_cell_voltages (const uint8_t *data, uint8_t leng
 
   // Publish calculated values
   if (current_ != NULL) {
-    current_->avg_cell_voltage_sensor_->publish_state(cell_avg_voltage);
-    current_->min_cell_voltage_sensor_->publish_state(cell_min_voltage);
-    current_->max_cell_voltage_sensor_->publish_state(cell_max_voltage);
-    current_->min_cell_index_sensor_->publish_state(min_cell_index);
-    current_->max_cell_index_sensor_->publish_state(max_cell_index);
-    current_->delta_cell_voltage_sensor_->publish_state(cell_max_voltage - cell_min_voltage);
+    current_->cell_avg_voltage_ = cell_avg_voltage;
+    current_->cell_min_voltage_ = cell_min_voltage;
+    current_->cell_max_voltage_ = cell_max_voltage;
+    current_->cell_min_index_ = min_cell_index;
+    current_->cell_max_index_ = max_cell_index;
   }
 
   // Return the number of bytes processed
@@ -364,10 +375,6 @@ void BasenController::handle_info (const uint8_t *data, uint8_t length) {
   position += processed;
   length -= processed;
 
-  float voltage = 0.0f;
-  float current = 0.0f;
-  char status_bitmask[40] = {0};
-
   while (length > 0) {
     if (length < 2) {
       ESP_LOGW(TAG, "Invalid length for next position: %d", length);
@@ -389,14 +396,13 @@ void BasenController::handle_info (const uint8_t *data, uint8_t length) {
   
     switch (position[0]) {
       case 0x02:  // Current
-        current = (data16 / -100.0f) + 300;  // Convert to A
-        current_->current_sensor_->publish_state(current);
+        current_->current_ = (data16 / -100.0f) + 300;  // Convert to A
         break;
       case 0x03:  // SoC
-        current_->soc_sensor_->publish_state(data16 / 100.0f);  // Publish SoC in percentage
+        current_->soc_ = data16 / 100.0f;  // Publish SoC in percentage
         break;
       case 0x04:  // Capacity
-        current_->capacity_sensor_->publish_state(data16 / 100.0f);  // Publish capacity in Ah
+        current_->capacity_ = data16 / 100;  // Publish capacity in Ah
         break;
       case 0x05:  // Temperature
         if (count > 6) {
@@ -405,19 +411,17 @@ void BasenController::handle_info (const uint8_t *data, uint8_t length) {
         }
         for (uint8_t i = 0; i < count; i++) {
           uint8_t type = position[2 + 2*i];  // Type of temperature sensor
-          uint8_t value = position[2 + 2*i + 1] - 50;  // Value of temperature sensor
-          if (current_->temperature_sensor_[i] != nullptr) {
-            if (type == 0x40) {
-              // MOS temperature
-              current_->temperature_sensor_[4]->publish_state(value);
-            } else if (type == 0x20) {
-              // Ambient temperature
-              current_->temperature_sensor_[5]->publish_state(value);
-            } else {
-              // Normal temperature sensor
-              if (i < 4)
-                current_->temperature_sensor_[i]->publish_state(value);
-            }
+          int8_t value = position[2 + 2*i + 1] - 50;  // Value of temperature sensor
+          if (type == 0x40) {
+            // MOS temperature
+            current_->temperature_mos_ = value;
+          } else if (type == 0x20) {
+            // Ambient temperature
+            current_->temperature_ambient_ = value;
+          } else {
+            // Normal temperature sensor
+            if (i < 4)
+              current_->temperature_[i] = value;
           }
         }
         break;
@@ -425,21 +429,16 @@ void BasenController::handle_info (const uint8_t *data, uint8_t length) {
         // Create a string containing all bytes
         if (!count || (count > 5))
           break;
-        for (uint8_t i = 0; i < (count*size); i++) {
-          sprintf (status_bitmask + i * 3, "%02X:", position[2 + i]);
-        }
-        status_bitmask[count*size*3 - 1] = '\0';
-        current_->status_bitmask_sensor_->publish_state(status_bitmask);
+        memcpy (current_->status_bitmask_, position + 2, count * size);
         break;
       case 0x07:  // Cycles
-        current_->cycles_sensor_->publish_state(data16);  // Publish cycles
+        current_->cycles_ = data16;
         break;
       case 0x08:  // Total voltage
-        voltage = data16 / 100.0f;  // Convert to V
-        current_->voltage_sensor_->publish_state(voltage);
+        current_->voltage_ = data16 / 100.0f;
         break;
       case 0x09:  // SoH
-        current_->soh_sensor_->publish_state(data16 / 100.0f);  // Publish SoH in percentage
+        current_->soh_ = data16 / 100.0f;
         break;
       default:        
         ESP_LOGD(TAG, "Data type %02X with count %d", type, count);
@@ -455,9 +454,6 @@ void BasenController::handle_info (const uint8_t *data, uint8_t length) {
     length -= data_size;
     position += data_size;
   }
-
-  // Calculate power
-  current_->power_sensor_->publish_state(voltage * current);
 }
 
 void BasenController::handle_data (const uint8_t *header, const uint8_t *data, uint8_t length) {
@@ -479,7 +475,7 @@ void BasenController::handle_data (const uint8_t *header, const uint8_t *data, u
     case COMMAND_INFO:
       handle_info(data, length);
       // All data has been updated, mark the device as updated and connected
-      current_->update_ = 3;
+      current_->state_ = BasenBMS::BMS_STATE_PUBLISH;
       if (!current_->connected_binary_sensor_->state)
         current_->connected_binary_sensor_->publish_state(true);
       current_ = NULL;
@@ -492,11 +488,66 @@ void BasenController::handle_data (const uint8_t *header, const uint8_t *data, u
 
 void BasenBMS::update()
 {
-  if (this->update_ == 0) {
-    this->update_ = 1;  // Set update flag
+  if (this->state_ == BMS_STATE_IDLE) {
+    this->state_ = BMS_STATE_WANT_UPDATE;  // Set update flag
   }
 }
 
+void BasenBMS::publish_status()
+{
+  // Create a string containing all bytes
+  char status_bitmask[40] = {0};
+
+  for (uint8_t i = 0; i < sizeof (this->status_bitmask_); i++) {
+    sprintf (status_bitmask + i * 3, "%02X:", this->status_bitmask_[i]);
+  }
+
+  status_bitmask[sizeof (this->status_bitmask_)*3 - 1] = '\0';
+  this->status_bitmask_sensor_->publish_state(status_bitmask);
+}
+
+void BasenBMS::publish()
+{
+  if (this->state_ != BMS_STATE_PUBLISH)
+    return;
+
+  // Publish sensors in blocks to reduce loop time
+  switch (this->publish_count_) {
+    case 0:
+      voltage_sensor_->publish_state(this->voltage_);
+      current_sensor_->publish_state(this->current_);
+      power_sensor_->publish_state(this->voltage_ * this->current_);
+      capacity_sensor_->publish_state(this->capacity_);
+      soc_sensor_->publish_state(this->soc_);
+      soh_sensor_->publish_state(this->soh_);
+      cycles_sensor_->publish_state(this->cycles_);
+      this->publish_count_++;
+      break;
+    case 1:
+      avg_cell_voltage_sensor_->publish_state(this->cell_avg_voltage_);
+      min_cell_voltage_sensor_->publish_state(this->cell_min_voltage_);
+      max_cell_voltage_sensor_->publish_state(this->cell_max_voltage_);
+      min_cell_index_sensor_->publish_state(this->cell_min_index_);
+      max_cell_index_sensor_->publish_state(this->cell_max_index_);
+      delta_cell_voltage_sensor_->publish_state(this->cell_max_voltage_ - this->cell_min_voltage_);
+      this->publish_count_++;
+      break;
+    case 2:
+      temperature_sensor_[0]->publish_state(this->temperature_[0]);
+      temperature_sensor_[1]->publish_state(this->temperature_[1]);
+      temperature_sensor_[2]->publish_state(this->temperature_[2]);
+      temperature_sensor_[3]->publish_state(this->temperature_[3]);
+      temperature_sensor_[4]->publish_state(this->temperature_mos_);
+      temperature_sensor_[5]->publish_state(this->temperature_ambient_);
+      publish_status();
+      this->publish_count_++;
+      break;
+    default:
+      this->publish_count_ = 0;
+      this->state_ = BMS_STATE_DONE;
+      break;
+  }
+}
 
 }  // namespace basen
 }  // namespace esphome

@@ -140,7 +140,15 @@ class BasenBMS : public PollingComponent {
  protected:
   friend BasenController;
   uint8_t address_{1};
-  uint8_t update_{0};
+
+  enum {
+    BMS_STATE_IDLE = 0,
+    BMS_STATE_WANT_UPDATE,
+    BMS_STATE_UPDATING,
+    BMS_STATE_PUBLISH,
+    BMS_STATE_DONE
+  };
+  uint8_t state_{0};
   uint32_t last_transmission_{0};
 
   // Sensors
@@ -149,6 +157,32 @@ class BasenBMS : public PollingComponent {
   text_sensor::TextSensor *status_bitmask_sensor_{nullptr};
   binary_sensor::BinarySensor *connected_binary_sensor_{nullptr};
   
+  // Sensors for BMS data
+  float voltage_{0.0f};
+  float current_{0.0f};
+  uint16_t capacity_{0};
+  float soc_{0.0f};
+  float soh_{0.0f};
+  uint16_t cycles_{0};
+  float cell_avg_voltage_{0.0f};
+  float cell_min_voltage_{0.0f};
+  float cell_max_voltage_{0.0f};
+  uint8_t cell_min_index_{0};
+  uint8_t cell_max_index_{0};
+  int8_t temperature_[4]{0, 0, 0, 0}; // Temperature sensors (4 sensors)
+  int8_t temperature_mos_{0};         // MOSFET temperature
+  int8_t temperature_ambient_{0};     // Ambient temperature
+  uint8_t status_bitmask_[10]{0};     // Status bitmask for BMS
+
+  void publish(void);
+  void publish_status();
+
+private:
+  BasenController *parent_;
+
+  uint8_t publish_count_{0};  // Counter for publish calls
+
+  // Sensors
   sensor::Sensor *voltage_sensor_{nullptr};
   sensor::Sensor *current_sensor_{nullptr};
   sensor::Sensor *power_sensor_{nullptr};
@@ -156,15 +190,13 @@ class BasenBMS : public PollingComponent {
   sensor::Sensor *soc_sensor_{nullptr};
   sensor::Sensor *soh_sensor_{nullptr};
   sensor::Sensor *cycles_sensor_{nullptr};
-  sensor::Sensor *temperature_sensor_[6]{nullptr};
   sensor::Sensor *avg_cell_voltage_sensor_{nullptr};
   sensor::Sensor *min_cell_voltage_sensor_{nullptr};
   sensor::Sensor *max_cell_voltage_sensor_{nullptr};
   sensor::Sensor *min_cell_index_sensor_{nullptr};
   sensor::Sensor *max_cell_index_sensor_{nullptr};
   sensor::Sensor *delta_cell_voltage_sensor_{nullptr};
-
-  BasenController *parent_;
+  sensor::Sensor *temperature_sensor_[6]{nullptr};
 };
 
 }  // namespace basen
