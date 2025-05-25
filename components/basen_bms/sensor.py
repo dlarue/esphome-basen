@@ -5,17 +5,13 @@ from esphome.const import (
     CONF_BATTERY_VOLTAGE,
     DEVICE_CLASS_CURRENT,
     DEVICE_CLASS_EMPTY,
-    #DEVICE_CLASS_ENERGY,
     DEVICE_CLASS_POWER,
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_VOLTAGE,
-    #DEVICE_CLASS_DURATION,
-    ICON_CURRENT_AC,
     ICON_EMPTY,
     ICON_FLASH,
     ICON_GAUGE,
     ICON_PERCENT,
-    ICON_POWER,
     ICON_THERMOMETER,
     ICON_BATTERY,
     ICON_COUNTER,
@@ -26,7 +22,6 @@ from esphome.const import (
     UNIT_PERCENT,
     UNIT_VOLT,
     UNIT_WATT,
-    UNIT_WATT_HOURS,
 )
 
 from . import CONF_BASEN_BMS_ID, BasenBMS
@@ -83,21 +78,21 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(CONF_BASEN_BMS_ID): cv.use_id(BasenBMS),
         cv.Optional(CONF_VOLTAGE): sensor.sensor_schema(
             unit_of_measurement=UNIT_VOLT,
-            icon=ICON_FLASH,
+            icon="mdi:alpha-v",
             accuracy_decimals=2,
             device_class=DEVICE_CLASS_VOLTAGE,
             state_class=STATE_CLASS_MEASUREMENT
         ),
         cv.Optional(CONF_POWER): sensor.sensor_schema(
             unit_of_measurement=UNIT_WATT,
-            icon=ICON_POWER,
+            icon=ICON_FLASH,
             accuracy_decimals=0,
             device_class=DEVICE_CLASS_POWER,
             state_class=STATE_CLASS_MEASUREMENT
         ),
         cv.Optional(CONF_CURRENT): sensor.sensor_schema(
             unit_of_measurement=UNIT_AMPERE,
-            icon=ICON_CURRENT_AC,
+            icon="mdi:current-dc",
             accuracy_decimals=2,
             device_class=DEVICE_CLASS_CURRENT,
             state_class=STATE_CLASS_MEASUREMENT
@@ -171,28 +166,28 @@ CONFIG_SCHEMA = cv.Schema(
         ),
         cv.Optional(CONF_AVG_CELL_VOLTAGE): sensor.sensor_schema(
             unit_of_measurement=UNIT_VOLT,
-            icon=ICON_FLASH,
+            icon="mdi:format-align-middle",
             accuracy_decimals=3,
             device_class=DEVICE_CLASS_VOLTAGE,
             state_class=STATE_CLASS_MEASUREMENT
         ),
         cv.Optional(CONF_MIN_CELL_VOLTAGE): sensor.sensor_schema(
             unit_of_measurement=UNIT_VOLT,
-            icon=ICON_FLASH,
+            icon="mdi:arrow-collapse-down",
             accuracy_decimals=3,
             device_class=DEVICE_CLASS_VOLTAGE,
             state_class=STATE_CLASS_MEASUREMENT
         ),
         cv.Optional(CONF_MAX_CELL_VOLTAGE): sensor.sensor_schema(
             unit_of_measurement=UNIT_VOLT,
-            icon=ICON_FLASH,
+            icon="mdi:arrow-collapse-up",
             accuracy_decimals=3,
             device_class=DEVICE_CLASS_VOLTAGE,
             state_class=STATE_CLASS_MEASUREMENT
         ),
         cv.Optional(CONF_DELTA_CELL_VOLTAGE): sensor.sensor_schema(
             unit_of_measurement=UNIT_VOLT,
-            icon=ICON_FLASH,
+            icon="mdi:delta",
             accuracy_decimals=3,
             device_class=DEVICE_CLASS_VOLTAGE,
             state_class=STATE_CLASS_MEASUREMENT
