@@ -28,7 +28,6 @@ static struct {
   {0, 0x80, "Voltage sensor fault"},
   {1, 0x01, "NTC disconnection"},
   {1, 0x02, "ADC MOD fault"},
-  {1, 0x02, "ADC MOD fault"},
   {1, 0x04, "Reverse battery"},
   {1, 0x08, "Hot failure"},
   {1, 0x10, "Battery locked"},

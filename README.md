@@ -57,7 +57,7 @@ or just use the `esphome-basen-bms.yaml` and modify it as needed.
 
 ## Status messages
 
-The following status messages can be decoded, though some have not been tested due to practical constraints or safety considerations:
+The following status messages can be decoded, though many have not been tested due to practical constraints or safety considerations:
 
 - Cell voltage low fault
 - Voltage line break
@@ -65,7 +65,6 @@ The following status messages can be decoded, though some have not been tested d
 - Dischare MOS fault
 - Voltage sensor fault
 - NTC disconnection
-- ADC MOD fault
 - ADC MOD fault
 - Reverse battery
 - Hot failure
