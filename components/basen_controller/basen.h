@@ -34,7 +34,7 @@ class BasenController : public uart::UARTDevice, public Component {
   uint8_t handle_cell_voltages(const uint8_t *data, uint8_t length);
   void queue_device(BasenBMS *bms);
   void update_device();
-  void check_timeout(int available_bytes);
+  void check_timeout();
   void uart_loop();
 
   // Controller state machine
@@ -48,8 +48,14 @@ class BasenController : public uart::UARTDevice, public Component {
 
   uint8_t state_{STATE_BUS_CHECK};
 
+  // Sent header
   uint8_t header_[4]{0};
-  uint8_t data_required_{0};
+  // Buffer for received data
+  uint8_t frame_[256]{0};
+  // Length of the received data  
+  uint8_t frame_size_{0};
+  // Number of required bytes to receive
+  uint8_t rx_required_{0};
 
   bool enable_{false};
   uint32_t last_bus_check_{0};

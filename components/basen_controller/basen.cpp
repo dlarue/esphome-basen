@@ -152,14 +152,14 @@ void BasenController::send_command(BasenBMS *BMS, const uint8_t command) {
   set_state (STATE_COMMAND_TX);
 }
 
-void BasenController::check_timeout (int available_bytes)
+void BasenController::check_timeout ()
 {
   // Check for timeout while waiting for data
   uint32_t now = millis();
   uint32_t elapsed = now - current_->last_transmission_;
   if (elapsed > timeout_) {
     // Timeout while waiting for data.
-    ESP_LOGW(TAG, "Timeout (%d ms) while waiting for data (%d < %d) for address %02X", elapsed, available_bytes, this->data_required_, current_->address_);
+    ESP_LOGW(TAG, "Timeout (%d ms) while waiting for data (%d < %d) for address %02X", elapsed, this->frame_size_, this->rx_required_, current_->address_);
     current_->timeout_count_++;
     current_->connected_binary_sensor_->publish_state(false);
     current_->state_ = BasenBMS::BMS_STATE_DONE;  // Mark as finished
@@ -219,7 +219,8 @@ void BasenController::uart_loop() {
       // Command was sent, wait for response
       set_state (STATE_RX_HEADER);
       // Minimum 6 bytes response
-      this->data_required_ = 6;
+      this->rx_required_ = 6;
+      this->frame_size_ = 0;
       return;
     case STATE_RX_HEADER:
     case STATE_RX_DATA:
@@ -233,34 +234,43 @@ void BasenController::uart_loop() {
 
   // Check if we have received the data
   int available_bytes = available();
-  if (available_bytes < this->data_required_) {
-    check_timeout(available_bytes);
+  if (available_bytes) {
+    // Check if we have enough space in the frame buffer
+    if (this->frame_size_ + available_bytes > sizeof(this->frame_)) {
+      ESP_LOGW(TAG, "Frame buffer overflow, clearing RX buffer");
+      set_state (STATE_BUS_CHECK);
+      return;
+    }
+
+    // Copy available data to the frame buffer
+    read_array(this->frame_ + this->frame_size_, available_bytes);
+    this->frame_size_ += available_bytes;
+  }
+
+  // Check if we have enough data
+  if (this->frame_size_ < this->rx_required_) {
+    // No, check if we have a timeout
+    check_timeout();
     return;
   }
 
   if (state_ == STATE_RX_HEADER) {
-    // Get first four bytes
-    uint8_t header[4] = {0};
-    read_array(header, sizeof(header));
-    ESP_LOGV(TAG, "Received header: %02X %02X %02X %02X", header[0], header[1], header[2], header[3]);
+    ESP_LOGV(TAG, "Received header: %02X %02X %02X %02X", frame_[0], frame_[1], frame_[2], frame_[3]);
 
-    if (header[0] != SOI || header[1] != this->header_[1] || header[2] != this->header_[2]) {
+    if (frame_[0] != SOI || frame_[1] != this->header_[1] || frame_[2] != this->header_[2]) {
         ESP_LOGW(TAG, "Header does not match expected values: %02X %02X %02X != %02X %02X %02X", 
-                 header[0], header[1], header[2], this->header_[0], this->header_[1], this->header_[2]);
+                 frame_[0], frame_[1], frame_[2], this->header_[0], this->header_[1], this->header_[2]);
         set_state (STATE_BUS_CHECK);
         return;
     }
 
     // Check length
-    uint8_t length = header[3];
+    uint8_t length = frame_[3];
 
     if (length == 0x00) {
       // Command echo, verify EOI
-      uint8_t tail[2] = {0};
-      read_array(tail, sizeof(tail));
-
-      if (tail[1] != EOI) {
-        ESP_LOGW(TAG, "Invalid tail");
+      if (frame_[5] != EOI) {
+        ESP_LOGW(TAG, "Invalid EOI");
         set_state (STATE_BUS_CHECK);
       }
 
@@ -275,21 +285,15 @@ void BasenController::uart_loop() {
     }
 
     // Check if we have enough data
-    this->data_required_ = length + 2;  // Length + checksum + EOI
+    this->rx_required_ = 4 + length + 2;  // Header + data + checksum + EOI
 
-    memcpy(this->header_, header, sizeof(header_));
     set_state (STATE_RX_DATA);
 
     // Return here to keep loop time short
     return;
   }
 
-  if (available () < this->data_required_) {
-    // Not enough data, wait
-    return;
-  }
-
-  if (this->data_required_ == 3) {
+  if (this->rx_required_ == 7) {
     // Only one data byte, most likely an error code:
     // 00H Normal
     // 01H VER Error
@@ -298,19 +302,10 @@ void BasenController::uart_loop() {
     // 04H CID2 Invalid
     // 05H Command Format Error
     // 06H Invalid data
-    uint8_t error[3] = {0};
-    read_array(error, sizeof(error));
-    ESP_LOGW(TAG, "Received error: %02X %02X %02X", error[0], error[1], error[2]);
+    ESP_LOGW(TAG, "Received error: %02X %02X %02X %02%", frame_[1], frame_[2], frame_[3], frame_[4]);
     set_state (STATE_BUS_CHECK);
     return;
   }
-
-  // Get data
-  uint16_t framesize = sizeof (header_) + data_required_;
-  uint8_t frame[framesize] = {0};
-  memcpy (frame, header_, sizeof(header_));
-  uint8_t *data = frame + sizeof(header_);
-  read_array(data, this->data_required_);
 
   // ESP_LOGD(TAG, "Received data: ");
   // for (size_t i = 0; i < this->data_required_; i++) {
@@ -319,23 +314,26 @@ void BasenController::uart_loop() {
   // ESP_LOGD(TAG, "");
 
   // Check EOI
-  if (frame[framesize - 1] != EOI) {
-    ESP_LOGW(TAG, "Invalid EOI byte: %02X", frame[framesize - 1]);
+  if (frame_[frame_size_ - 1] != EOI) {
+    ESP_LOGW(TAG, "Invalid EOI byte: %02X", frame_[frame_size_ - 1]);
     set_state (STATE_BUS_CHECK);
     return;
   }
 
-  // Verify checksum
-  uint8_t checksum = this->checksum(frame, sizeof(header_) + header_[3]);
+  uint8_t *data = frame_ + sizeof(header_);
+  uint8_t data_size = frame_[3];
 
-  if (checksum != data[header_[3]]) {
-    ESP_LOGW(TAG, "Checksum mismatch: %02X != %02X", checksum, data[header_[3]]);
+  // Verify checksum
+  uint8_t checksum = this->checksum(frame_, sizeof(header_) + data_size);
+  
+  if (checksum != data[data_size]) {
+    ESP_LOGW(TAG, "Checksum mismatch: %02X != %02X", checksum, data[data_size]);
     set_state (STATE_BUS_CHECK);
     return;
   }
   
   // Handle data
-  handle_data (header_, data, header_[3]);
+  handle_data (frame_, data, data_size);
 
   set_state (STATE_IDLE);
 }
