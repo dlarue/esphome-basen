@@ -11,6 +11,8 @@ namespace basen {
 
 class BasenBMS;  // Forward declaration
 
+#define BASEN_BMS_PROTECT_PARAMETERS  0x33
+
 class BasenController : public uart::UARTDevice, public Component {
  public:
   void set_throttle(uint32_t throttle) { this->throttle_ = throttle; }
@@ -28,10 +30,12 @@ class BasenController : public uart::UARTDevice, public Component {
   void set_state(uint8_t state);
   bool empty_rx (void);
   uint8_t checksum (const uint8_t *data, uint8_t len);
-  void send_command(BasenBMS *BMS, const uint8_t command);
+  void send_command(BasenBMS *BMS, const uint16_t command);
   void handle_data (const uint8_t *header, const uint8_t *data, uint8_t length);
   void handle_info(const uint8_t *data, uint8_t length);
   uint8_t handle_cell_voltages(const uint8_t *data, uint8_t length);
+  void handle_parameters (const uint8_t *data, uint8_t length);
+
   void queue_device(BasenBMS *bms);
   void update_device();
   void check_timeout();
@@ -69,9 +73,66 @@ class BasenController : public uart::UARTDevice, public Component {
   BasenBMS *current_{nullptr};  // Pointer to the currently processing BMS
 };
 
+
+  // // These are ordered by the type field!
+  // typedef struct {
+  //   uint16_t CELL_OV_Start;                // 0x00
+  //   uint16_t CELL_OV_Delay;                // 0x01
+  //   uint16_t CELL_OV_Stop;                 // 0x02
+  //   uint16_t CELL_UV_Start;                // 0x03
+  //   uint16_t CELL_UV_Delay;                // 0x04
+  //   uint16_t CELL_UV_Stop;                 // 0x05
+  //   uint16_t PACK_OV_Start;                // 0x06
+  //   uint16_t PACK_OV_Delay;                // 0x07
+  //   uint16_t PACK_OV_Stop;                 // 0x08
+  //   uint16_t PACK_UV_Start;                // 0x09
+  //   uint16_t PACK_UV_Delay;                // 0x0A
+  //   uint16_t PACK_UV_Stop;                 // 0x0B
+  //   uint16_t Const_Pack_V;                 // 0x0C
+  //   uint16_t Const_Current;                // 0x0D
+  //   uint16_t CHG_OC1_Start;                // 0x0E
+  //   uint16_t CHG_OC1_Delay;                // 0x0F
+  //   uint16_t DISC_OC1_Start;               // 0x10
+  //   uint16_t DISC_OC1_Delay;               // 0x11
+  //   uint16_t CHG_OC2_Start;                // 0x12
+  //   uint16_t CHG_OC2_Delay;                // 0x13
+  //   uint16_t DISC_OC2_Start;               // 0x14
+  //   uint16_t DISC_OC2_Delay;               // 0x15
+  //   uint16_t CHG_OT_START;                 // 0x16
+  //   uint16_t CHG_OT_Delay;                 // 0x17
+  //   uint16_t CHG_OT_STOP;                  // 0x18
+  //   uint16_t DISC_OT_START;                // 0x19
+  //   uint16_t DISC_OT_Delay;                // 0x1A
+  //   uint16_t DISC_OT_STOP;                 // 0x1B
+  //   uint16_t CHG_UT_START;                 // 0x1C
+  //   uint16_t CHG_UT_Delay;                 // 0x1D
+  //   uint16_t CHG_UT_STOP;                  // 0x1E
+  //   uint16_t DISC_UT_START;                // 0x1F
+  //   uint16_t DISC_UT_Delay;                // 0x20
+  //   uint16_t DISC_UT_STOP;                 // 0x21
+  //   uint16_t MOS_OT_START;                 // 0x22
+  //   uint16_t MOS_OT_Delay;                 // 0x23
+  //   uint16_t MOS_OT_STOP;                  // 0x24
+  //   uint16_t ENV_OT_START;                 // 0x25
+  //   uint16_t ENV_OT_Delay;                 // 0x26
+  //   uint16_t ENV_OT_STOP;                  // 0x27
+  //   uint16_t ENV_UT_START;                 // 0x28
+  //   uint16_t ENV_UT_Delay;                 // 0x29
+  //   uint16_t ENV_UT_STOP;                  // 0x2A
+  //   uint16_t Balance_Start_Vol;            // 0x2B
+  //   uint16_t Balance_Start_Diff;           // 0x2C
+  //   uint16_t Sleep_Cell_Volt;              // 0x2D
+  //   uint16_t Shorts_Delay;                 // 0x2E
+  //   uint16_t Standby_Time;                 // 0x2F
+  //   uint16_t UV_OFF_Time;                  // 0x30
+  //   uint16_t LC_Style;                     // 0x31
+  //   uint16_t Sleep_Time;                   // 0x32
+  // } PARAMETERS_PROTECT;
+
 class BasenBMS : public PollingComponent {
  public:
   void update();
+  void dump_config() override;
 
   void set_parent(BasenController *parent) { parent_ = parent; parent->register_bms(this); }
   void set_address(uint8_t address) { address_ = address; }
@@ -150,6 +211,14 @@ class BasenBMS : public PollingComponent {
     delta_cell_voltage_sensor_ = sensor;
   }
   
+  void set_param_sensor(sensor::Sensor *sensor, uint8_t index) {
+    if (index >= sizeof(param_sensor_)/sizeof(param_sensor_[0])) {
+      ESP_LOGE("BasenBMS", "Invalid parameter sensor index: %d", index);
+      return;
+    }
+    param_sensor_[index] = sensor;
+  }
+
  protected:
   friend BasenController;
   uint8_t address_{1};
@@ -187,8 +256,14 @@ class BasenBMS : public PollingComponent {
   int8_t temperature_ambient_{0};     // Ambient temperature
   uint8_t status_bitmask_[10]{0};     // Status bitmask for BMS
 
+  // Protect parameters
+  uint16_t params_protect_[BASEN_BMS_PROTECT_PARAMETERS];  // Protect parameters
+  bool params_received_{false};  // Flag to check if parameters have been received
+
   void publish(void);
   void publish_status();
+
+  void handle_parameters (const uint8_t *data, uint8_t length);
 
 private:
   BasenController *parent_;
@@ -212,6 +287,9 @@ private:
   sensor::Sensor *temperature_sensor_[6]{nullptr};
   text_sensor::TextSensor *status_bitmask_sensor_{nullptr};
   text_sensor::TextSensor *status_sensor_{nullptr};
+
+  sensor::Sensor *param_sensor_[BASEN_BMS_PROTECT_PARAMETERS]{nullptr};  // Array for parameters sensors
+  
 };
 
 }  // namespace basen

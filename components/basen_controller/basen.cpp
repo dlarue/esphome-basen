@@ -13,7 +13,9 @@ static const uint8_t EOI = 0x0D;
 #define COMMAND_INFO 0x01
 #define COMMAND_BMS_VERSION 0x33
 #define COMMAND_BARCODE 0x42
+#define COMMAND_PARAMETERS 0xE043
 
+// Status messages
 static struct {
   uint8_t     offset;
   uint8_t     bit;
@@ -78,6 +80,65 @@ static struct {
   {9, 0x80, "BAT_CHG_Low_TEMP_Alarm"},
 };
 
+// Conversion operations for parameters
+struct {
+    uint8_t Op;   // 0 = None, 1 = Multiply, 2 = Divide, 3 = Add, 4 = Subtract
+    float Value;  // Value to apply the operation with
+} param_operation[] = {
+    {2, 1000}, // CELL_OV_Start (V)
+    {0, 1000}, // CELL_OV_Delay (Delay)
+    {2, 1000}, // CELL_OV_Stop (V)
+    {2, 1000}, // CELL_UV_Start (V)
+    {0, 1000}, // CELL_UV_Delay (Delay)
+    {2, 1000}, // CELL_UV_Stop (V)
+    {2, 100},  // PACK_OV_Start (V)
+    {0, 1000}, // PACK_OV_Delay (Delay)
+    {2, 100},  // PACK_OV_Stop (V)
+    {2, 100},  // PACK_UV_Start (V)
+    {0, 1000}, // PACK_UV_Delay (Delay)
+    {2, 100},  // PACK_UV_Stop (V)
+    {2, 100},  // Const_Pack_V (V)
+    {2, 1000}, // Const_Current
+    {2, 100},  // CHG_OC1_Start
+    {0, 1000}, // CHG_OC1_Delay (Delay)
+    {2, 100},  // DISC_OC1_Start
+    {0, 1000}, // DISC_OC1_Delay (Delay)
+    {2, 100},  // CHG_OC2_Start
+    {0, 1000}, // CHG_OC2_Delay (Delay)
+    {2, 100},  // DISC_OC2_Start
+    {0, 1000}, // DISC_OC2_Delay (Delay)
+    {4, 50},   // CHG_OT_START (T)
+    {0, 1000}, // CHG_OT_Delay (Delay)
+    {4, 50},   // CHG_OT_STOP (T)
+    {4, 50},   // DISC_OT_START (T)
+    {0, 1000}, // DISC_OT_Delay (Delay)
+    {4, 50},   // DISC_OT_STOP (T)
+    {4, 50},   // CHG_UT_START (T)
+    {0, 1000}, // CHG_UT_Delay (T, Delay)
+    {4, 50},   // CHG_UT_STOP (T)
+    {4, 50},   // DISC_UT_START (T)
+    {0, 1000}, // DISC_UT_Delay (T, Delay)
+    {4, 50},   // DISC_UT_STOP (T)
+    {4, 50},   // MOS_OT_START (T)
+    {0, 1000}, // MOS_OT_Delay (T, Delay)
+    {4, 50},   // MOS_OT_STOP (T)
+    {4, 50},   // ENV_OT_START (T)
+    {0, 1000}, // ENV_OT_Delay (T, Delay)
+    {4, 50},   // ENV_OT_STOP (T)
+    {4, 50},   // ENV_UT_START (T)
+    {0, 1000}, // ENV_UT_Delay (T, Delay)
+    {4, 50},   // ENV_UT_STOP (T)
+    {2, 1000}, // Balance_Start_Vol (V)
+    {2, 1000}, // Balance_Start_Diff
+    {2, 1000}, // Sleep_Cell_Volt (V)
+    {2, 100},  // Shorts_Delay (Delay)
+    {0, 60},   // Standby_Time (T)
+    {2, 60},   // UV_OFF_Time (T)
+    {0, 0},    // LC_Style
+    {0, 60},   // Sleep_Time (T)
+};
+
+
 void BasenController::dump_config() {
   ESP_LOGI(TAG, "Basen:");
 
@@ -128,8 +189,8 @@ uint8_t BasenController::checksum (const uint8_t *data, uint8_t len) {
   return (uint8_t)((num1 ^ num2) & 0xFF);
 }
 
-void BasenController::send_command(BasenBMS *BMS, const uint8_t command) {
-  uint8_t data[6] = {SOI, BMS->address_, command, 0x00, 0xFE, EOI};
+void BasenController::send_command(BasenBMS *BMS, const uint16_t command) {
+  uint8_t data[6] = {SOI, BMS->address_, (uint8_t)(command & 0xFF), (uint8_t)(command >> 8), 0xFE, EOI};
 
   // Calculate checksum
   // Examples: (Checksum byte is before EOI 0x0d)
@@ -186,6 +247,9 @@ void BasenController::update_device ()
   } else if (!current_->barcode_text_sensor_->has_state()) {
     // Get barcode
     this->send_command(current_, COMMAND_BARCODE);
+  } else if (!current_->params_received_) {
+    // Get parameters
+    this->send_command(current_, COMMAND_PARAMETERS);
   } else if ((now-current_->last_transmission_) > 1000) {
     // Get info
     this->send_command(current_, COMMAND_INFO);
@@ -577,6 +641,9 @@ void BasenController::handle_data (const uint8_t *header, const uint8_t *data, u
       current_->barcode_text_sensor_->publish_state(std::string(reinterpret_cast<const char *>(data), length));
       ESP_LOGD(TAG, "Address: %d Barcode: %s", current_->address_, current_->barcode_text_sensor_->get_state().c_str());
       break;
+    case (uint8_t)COMMAND_PARAMETERS:
+      current_->handle_parameters(data, length);
+      break;
     case COMMAND_INFO:
       handle_info(data, length);
       // All data has been updated, mark the device as updated and connected
@@ -669,6 +736,70 @@ void BasenBMS::publish()
       this->state_ = BMS_STATE_DONE;
       break;
   }
+}
+
+void BasenBMS::handle_parameters (const uint8_t *data, uint8_t length) {
+  params_received_ = true;  // Mark parameters as received
+
+  if (length < 4) {
+    ESP_LOGW(TAG, "Invalid length for COMMAND_PARAMETERS: %d", length);
+    return;
+  }
+
+  uint8_t position = 0;
+  while (position < length) {
+    uint8_t type = data[position++];
+    uint8_t size = data[position++];
+
+    if (size != 2) {
+      ESP_LOGW(TAG, "Unsupported size for type %02X: %d", type, size);
+      return;
+    }
+
+    if (type > sizeof(params_protect_) / sizeof(uint16_t)) {
+      ESP_LOGW(TAG, "Invalid type %02X", type);
+      return;
+    }
+
+    ((uint16_t *)&params_protect_)[type] = (data[position] << 8) | data[position + 1];
+
+    position += size;
+  }
+
+  if (sizeof (param_operation) / sizeof(param_operation[0]) != sizeof(params_protect_) / sizeof(params_protect_[0])) {
+    ESP_LOGW(TAG, "Parameter operations size mismatch");
+    return;
+  }
+
+  // Publish parameters
+  for (size_t i = 0; i < sizeof(params_protect_) / sizeof(params_protect_[0]); i++) {
+    // Convert parameter
+    float value = params_protect_[i];
+    switch (param_operation[i].Op) {
+      case 1: // Multiply
+        value *= param_operation[i].Value;
+        break;
+      case 2: // Divide
+        value /= param_operation[i].Value;
+        break;
+      case 3: // Add
+        value += param_operation[i].Value;
+        break;
+      case 4: // Subtract
+        value -= param_operation[i].Value;
+        break;
+      default:
+        break; // No operation
+    }
+
+    if (param_sensor_[i] != nullptr) {
+      param_sensor_[i]->publish_state(value);
+    }
+  }
+}
+
+void BasenBMS::dump_config() {
+
 }
 
 }  // namespace basen

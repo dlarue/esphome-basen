@@ -22,6 +22,8 @@ from esphome.const import (
     UNIT_PERCENT,
     UNIT_VOLT,
     UNIT_WATT,
+    UNIT_MINUTE,
+    UNIT_MILLISECOND
 )
 
 from . import CONF_BASEN_BMS_ID, BasenBMS
@@ -72,6 +74,62 @@ SENSORS = [
     CONF_MAX_CELL_INDEX,
     CONF_DELTA_CELL_VOLTAGE
 ]
+
+# The index matches the type of the parameter as received from the device.
+PARAMETERS = [
+    "CELL_OV_Start",            # 0x00
+    "CELL_OV_Delay",            # 0x01
+    "CELL_OV_Stop",             # 0x02
+    "CELL_UV_Start",            # 0x03
+    "CELL_UV_Delay",            # 0x04
+    "CELL_UV_Stop",             # 0x05
+    "PACK_OV_Start",            # 0x06
+    "PACK_OV_Delay",            # 0x07
+    "PACK_OV_Stop",             # 0x08
+    "PACK_UV_Start",            # 0x09
+    "PACK_UV_Delay",            # 0x0A
+    "PACK_UV_Stop",             # 0x0B
+    "Const_Pack_V",             # 0x0C
+    "Const_Current",            # 0x0D
+    "CHG_OC1_Start",            # 0x0E
+    "CHG_OC1_Delay",            # 0x0F
+    "DISC_OC1_Start",           # 0x10
+    "DISC_OC1_Delay",           # 0x11
+    "CHG_OC2_Start",            # 0x12
+    "CHG_OC2_Delay",            # 0x13
+    "DISC_OC2_Start",           # 0x14
+    "DISC_OC2_Delay",           # 0x15
+    "CHG_OT_START",             # 0x16
+    "CHG_OT_Delay",             # 0x17
+    "CHG_OT_STOP",              # 0x18
+    "DISC_OT_START",            # 0x19
+    "DISC_OT_Delay",            # 0x1A
+    "DISC_OT_STOP",             # 0x1B
+    "CHG_UT_START",             # 0x1C
+    "CHG_UT_Delay",             # 0x1D
+    "CHG_UT_STOP",              # 0x1E
+    "DISC_UT_START",            # 0x1F
+    "DISC_UT_Delay",            # 0x20
+    "DISC_UT_STOP",             # 0x21
+    "MOS_OT_START",             # 0x22
+    "MOS_OT_Delay",             # 0x23
+    "MOS_OT_STOP",              # 0x24
+    "ENV_OT_START",             # 0x25
+    "ENV_OT_Delay",             # 0x26
+    "ENV_OT_STOP",              # 0x27
+    "ENV_UT_START",             # 0x28
+    "ENV_UT_Delay",             # 0x29
+    "ENV_UT_STOP",              # 0x2A
+    "Balance_Start_Vol",        # 0x2B
+    "Balance_Start_Diff",       # 0x2C
+    "Sleep_Cell_Volt",          # 0x2D
+    "Shorts_Delay",             # 0x2E
+    "Standby_Time",             # 0x2F
+    "UV_OFF_Time",              # 0x30
+    "LC_Style",                 # 0x31
+    "Sleep_Time",               # 0x32
+]
+
 
 CONFIG_SCHEMA = cv.Schema(
     {
@@ -209,6 +267,61 @@ CONFIG_SCHEMA = cv.Schema(
     }
 )
 
+for param in PARAMETERS:
+    if "Delay" in param:
+        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+            cv.Optional(param): sensor.sensor_schema(
+                unit_of_measurement=UNIT_MILLISECOND,
+                icon="mdi:timer-sand",
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_VOLTAGE
+            )
+        })
+    elif "Time" in param:
+        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+            cv.Optional(param): sensor.sensor_schema(
+                unit_of_measurement=UNIT_MINUTE,
+                icon="mdi:timer-sand",
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_VOLTAGE
+            )
+        })
+    elif "OT" in param or "UT" in param:
+        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+            cv.Optional(param): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CELSIUS,
+                icon=ICON_THERMOMETER,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_TEMPERATURE
+            )
+        })
+    elif "OC" in param or "Current" in param:
+        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+            cv.Optional(param): sensor.sensor_schema(
+                unit_of_measurement=UNIT_AMPERE,
+                icon="mdi:current-dc",
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_CURRENT
+            )
+        })
+    elif "_Diff" in param or "V" in param:
+        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+            cv.Optional(param): sensor.sensor_schema(
+                unit_of_measurement=UNIT_VOLT,
+                icon=ICON_GAUGE,
+                accuracy_decimals=3,
+                device_class=DEVICE_CLASS_VOLTAGE
+            )
+        })
+    else:
+        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+            cv.Optional(param): sensor.sensor_schema(
+                unit_of_measurement=UNIT_EMPTY,
+                icon=ICON_COUNTER,
+                accuracy_decimals=3,
+                device_class=DEVICE_CLASS_EMPTY
+            )
+        })
 
 def to_code(config):
     hub = yield cg.get_variable(config[CONF_BASEN_BMS_ID])
@@ -217,3 +330,8 @@ def to_code(config):
             conf = config[key]
             sens = yield sensor.new_sensor(conf)
             cg.add(getattr(hub, f"set_{key}_sensor")(sens))
+    for index, key in enumerate(PARAMETERS):
+        if key in config:
+            conf = config[key]
+            sens = yield sensor.new_sensor(conf)
+            cg.add(getattr(hub, f"set_param_sensor")(sens, index))

@@ -173,6 +173,109 @@ sensor:
       name: "${name} 1 maximum cell index"
     delta_cell_voltage:
       name: "${name} 1 delta cell voltage"
+    CELL_OV_Start:
+      name: "${name} 1 CELL_OV_Start"
+    CELL_OV_Delay:
+      name: "${name} 1 CELL_OV_Delay"
+    CELL_OV_Stop:
+      name: "${name} 1 CELL_OV_Stop"
+    CELL_UV_Start:
+      name: "${name} 1 CELL_UV_Start"
+    CELL_UV_Delay:
+      name: "${name} 1 CELL_UV_Delay"
+    CELL_UV_Stop:
+      name: "${name} 1 CELL_UV_Stop"
+    PACK_OV_Start:
+      name: "${name} 1 PACK_OV_Start"
+    PACK_OV_Delay:
+      name: "${name} 1 PACK_OV_Delay"
+    PACK_OV_Stop:
+      name: "${name} 1 PACK_OV_Stop"
+    PACK_UV_Start:
+      name: "${name} 1 PACK_UV_Start"
+    PACK_UV_Delay:
+      name: "${name} 1 PACK_UV_Delay"
+    PACK_UV_Stop:
+      name: "${name} 1 PACK_UV_Stop"
+    Const_Pack_V:
+      name: "${name} 1 Const_Pack_V"
+    Const_Current:
+      name: "${name} 1 Const_Current"
+    CHG_OC1_Start:
+      name: "${name} 1 CHG_OC1_Start"
+    CHG_OC1_Delay:
+      name: "${name} 1 CHG_OC1_Delay"
+    DISC_OC1_Start:
+      name: "${name} 1 DISC_OC1_Start"
+    DISC_OC1_Delay:
+      name: "${name} 1 DISC_OC1_Delay"
+    CHG_OC2_Start:
+      name: "${name} 1 CHG_OC2_Start"
+    CHG_OC2_Delay:
+      name: "${name} 1 CHG_OC2_Delay"
+    DISC_OC2_Start:
+      name: "${name} 1 DISC_OC2_Start"
+    DISC_OC2_Delay:
+      name: "${name} 1 DISC_OC2_Delay"
+    CHG_OT_START:
+      name: "${name} 1 CHG_OT_START"
+    CHG_OT_Delay:
+      name: "${name} 1 CHG_OT_Delay"
+    CHG_OT_STOP:
+      name: "${name} 1 CHG_OT_STOP"
+    DISC_OT_START:
+      name: "${name} 1 DISC_OT_START"
+    DISC_OT_Delay:
+      name: "${name} 1 DISC_OT_Delay"
+    DISC_OT_STOP:
+      name: "${name} 1 DISC_OT_STOP"
+    CHG_UT_START:
+      name: "${name} 1 CHG_UT_START"
+    CHG_UT_Delay:
+      name: "${name} 1 CHG_UT_Delay"
+    CHG_UT_STOP:
+      name: "${name} 1 CHG_UT_STOP"
+    DISC_UT_START:
+      name: "${name} 1 DISC_UT_START"
+    DISC_UT_Delay:
+      name: "${name} 1 DISC_UT_Delay"
+    DISC_UT_STOP:
+      name: "${name} 1 DISC_UT_STOP"
+    MOS_OT_START:
+      name: "${name} 1 MOS_OT_START"
+    MOS_OT_Delay:
+      name: "${name} 1 MOS_OT_Delay"
+    MOS_OT_STOP:
+      name: "${name} 1 MOS_OT_STOP"
+    ENV_OT_START:
+      name: "${name} 1 ENV_OT_START"
+    ENV_OT_Delay:
+      name: "${name} 1 ENV_OT_Delay"
+    ENV_OT_STOP:
+      name: "${name} 1 ENV_OT_STOP"
+    ENV_UT_START:
+      name: "${name} 1 ENV_UT_START"
+    ENV_UT_Delay:
+      name: "${name} 1 ENV_UT_Delay"
+    ENV_UT_STOP:
+      name: "${name} 1 ENV_UT_STOP"
+    Balance_Start_Vol:
+      name: "${name} 1 Balance_Start_Vol"
+    Balance_Start_Diff:
+      name: "${name} 1 Balance_Start_Diff"
+    Sleep_Cell_Volt:
+      name: "${name} 1 Sleep_Cell_Volt"
+    Shorts_Delay:
+      name: "${name} 1 Shorts_Delay"
+    Standby_Time:
+      name: "${name} 1 Standby_Time"
+    UV_OFF_Time:
+      name: "${name} 1 UV_OFF_Time"
+    LC_Style:
+      name: "${name} 1 LC_Style"
+    Sleep_Time:
+      name: "${name} 1 Sleep_Time"
+
   - platform: basen_bms
     basen_bms_id: basen_bms2
     voltage:
@@ -213,7 +316,109 @@ sensor:
       name: "${name} 2 maximum cell index"
     delta_cell_voltage:
       name: "${name} 2 delta cell voltage"
-
+    CELL_OV_Start:
+      name: "${name} 2 CELL_OV_Start"
+    CELL_OV_Delay:
+      name: "${name} 2 CELL_OV_Delay"
+    CELL_OV_Stop:
+      name: "${name} 2 CELL_OV_Stop"
+    CELL_UV_Start:
+      name: "${name} 2 CELL_UV_Start"
+    CELL_UV_Delay:
+      name: "${name} 2 CELL_UV_Delay"
+    CELL_UV_Stop:
+      name: "${name} 2 CELL_UV_Stop"
+    PACK_OV_Start:
+      name: "${name} 2 PACK_OV_Start"
+    PACK_OV_Delay:
+      name: "${name} 2 PACK_OV_Delay"
+    PACK_OV_Stop:
+      name: "${name} 2 PACK_OV_Stop"
+    PACK_UV_Start:
+      name: "${name} 2 PACK_UV_Start"
+    PACK_UV_Delay:
+      name: "${name} 2 PACK_UV_Delay"
+    PACK_UV_Stop:
+      name: "${name} 2 PACK_UV_Stop"
+    Const_Pack_V:
+      name: "${name} 2 Const_Pack_V"
+    Const_Current:
+      name: "${name} 2 Const_Current"
+    CHG_OC1_Start:
+      name: "${name} 2 CHG_OC1_Start"
+    CHG_OC1_Delay:
+      name: "${name} 2 CHG_OC1_Delay"
+    DISC_OC1_Start:
+      name: "${name} 2 DISC_OC1_Start"
+    DISC_OC1_Delay:
+      name: "${name} 2 DISC_OC1_Delay"
+    CHG_OC2_Start:
+      name: "${name} 2 CHG_OC2_Start"
+    CHG_OC2_Delay:
+      name: "${name} 2 CHG_OC2_Delay"
+    DISC_OC2_Start:
+      name: "${name} 2 DISC_OC2_Start"
+    DISC_OC2_Delay:
+      name: "${name} 2 DISC_OC2_Delay"
+    CHG_OT_START:
+      name: "${name} 2 CHG_OT_START"
+    CHG_OT_Delay:
+      name: "${name} 2 CHG_OT_Delay"
+    CHG_OT_STOP:
+      name: "${name} 2 CHG_OT_STOP"
+    DISC_OT_START:
+      name: "${name} 2 DISC_OT_START"
+    DISC_OT_Delay:
+      name: "${name} 2 DISC_OT_Delay"
+    DISC_OT_STOP:
+      name: "${name} 2 DISC_OT_STOP"
+    CHG_UT_START:
+      name: "${name} 2 CHG_UT_START"
+    CHG_UT_Delay:
+      name: "${name} 2 CHG_UT_Delay"
+    CHG_UT_STOP:
+      name: "${name} 2 CHG_UT_STOP"
+    DISC_UT_START:
+      name: "${name} 2 DISC_UT_START"
+    DISC_UT_Delay:
+      name: "${name} 2 DISC_UT_Delay"
+    DISC_UT_STOP:
+      name: "${name} 2 DISC_UT_STOP"
+    MOS_OT_START:
+      name: "${name} 2 MOS_OT_START"
+    MOS_OT_Delay:
+      name: "${name} 2 MOS_OT_Delay"
+    MOS_OT_STOP:
+      name: "${name} 2 MOS_OT_STOP"
+    ENV_OT_START:
+      name: "${name} 2 ENV_OT_START"
+    ENV_OT_Delay:
+      name: "${name} 2 ENV_OT_Delay"
+    ENV_OT_STOP:
+      name: "${name} 2 ENV_OT_STOP"
+    ENV_UT_START:
+      name: "${name} 2 ENV_UT_START"
+    ENV_UT_Delay:
+      name: "${name} 2 ENV_UT_Delay"
+    ENV_UT_STOP:
+      name: "${name} 2 ENV_UT_STOP"
+    Balance_Start_Vol:
+      name: "${name} 2 Balance_Start_Vol"
+    Balance_Start_Diff:
+      name: "${name} 2 Balance_Start_Diff"
+    Sleep_Cell_Volt:
+      name: "${name} 2 Sleep_Cell_Volt"
+    Shorts_Delay:
+      name: "${name} 2 Shorts_Delay"
+    Standby_Time:
+      name: "${name} 2 Standby_Time"
+    UV_OFF_Time:
+      name: "${name} 2 UV_OFF_Time"
+    LC_Style:
+      name: "${name} 2 LC_Style"
+    Sleep_Time:
+      name: "${name} 2 Sleep_Time"
+      
   - platform: debug
     free:
       name: ${name} Heap free
