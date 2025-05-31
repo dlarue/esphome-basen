@@ -12,6 +12,7 @@ namespace basen {
 class BasenBMS;  // Forward declaration
 
 #define BASEN_BMS_PROTECT_PARAMETERS  0x33
+#define BASEN_BMS_ALARM_PARAMETERS    0x2F
 
 class BasenController : public uart::UARTDevice, public Component {
  public:
@@ -215,6 +216,19 @@ class BasenBMS : public PollingComponent {
     param_sensor_[index] = sensor;
   }
 
+  void set_alarm_param_sensor(sensor::Sensor *sensor, uint8_t index) {
+    if (index >= sizeof(param_alarm_sensor_)/sizeof(param_alarm_sensor_[0])) {
+      ESP_LOGE("BasenBMS", "Invalid alarm parameter sensor index: %d", index);
+      return;
+    }
+    param_alarm_sensor_[index] = sensor;
+  }
+
+  typedef struct {
+    uint8_t Op;   // 0 = None, 1 = Multiply, 2 = Divide, 3 = Add, 4 = Subtract
+    float Value;  // Value to apply the operation with
+  } PARAM_OPERATION;
+
  protected:
   friend BasenController;
   uint8_t address_{1};
@@ -254,7 +268,8 @@ class BasenBMS : public PollingComponent {
 
   // Protect parameters
   uint16_t params_protect_[BASEN_BMS_PROTECT_PARAMETERS];  // Protect parameters
-  bool params_received_{false};  // Flag to check if parameters have been received
+  uint16_t params_alarm_[BASEN_BMS_ALARM_PARAMETERS];      // Alarm parameters
+  uint8_t params_received_{0};  // Flags to check if parameters have been received
 
   void publish(void);
   void publish_status();
@@ -262,7 +277,8 @@ class BasenBMS : public PollingComponent {
   bool handle_data (const uint8_t *header, const uint8_t *data, uint8_t length);
   void handle_info(const uint8_t *data, uint8_t length);
   uint8_t handle_cell_voltages(const uint8_t *data, uint8_t length);
-  void handle_parameters (const uint8_t *data, uint8_t length);
+
+  void handle_parameters (const uint8_t *data, const uint8_t length, uint16_t *params, uint8_t params_count, PARAM_OPERATION *ops, sensor::Sensor **sensors);
   
 private:
   BasenController *parent_;
@@ -287,7 +303,8 @@ private:
   text_sensor::TextSensor *status_bitmask_sensor_{nullptr};
   text_sensor::TextSensor *status_sensor_{nullptr};
 
-  sensor::Sensor *param_sensor_[BASEN_BMS_PROTECT_PARAMETERS]{nullptr};  // Array for parameters sensors
+  sensor::Sensor *param_sensor_[BASEN_BMS_PROTECT_PARAMETERS]{nullptr};  // Array for protect parameter sensors
+  sensor::Sensor *param_alarm_sensor_[BASEN_BMS_ALARM_PARAMETERS]{nullptr};  // Array for alarm parameter sensors
   
 };
 

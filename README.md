@@ -116,6 +116,56 @@ The following status messages can be decoded, though many have not been tested d
 - BAT_CHG_Over_TEMP_Alarm
 - BAT_CHG_Low_TEMP_Alarm
 
+## Alarm Parameters
+
+The following alarm parameters are read (typically once during startup):
+
+- CELL_OV_Start_Alarm
+- CELL_OV_Delay_Alarm
+- CELL_OV_Stop_Alarm
+- CELL_UV_Start_Alarm
+- CELL_UV_Delay_Alarm
+- CELL_UV_Stop_Alarm
+- PACK_OV_Start_Alarm
+- PACK_OV_Delay_Alarm
+- PACK_OV_Stop_Alarm
+- PACK_UV_Start_Alarm
+- PACK_UV_Delay_Alarm
+- PACK_UV_Stop_Alarm
+- CHG_OC_Start_Alarm
+- CHG_OC_Delay_Alarm
+- CHG_OC_Stop_Alarm
+- DISC_OC_Start_Alarm
+- DISC_OC_Delay_Alarm
+- DISC_OC_Stop_Alarm
+- CHG_OT_START_Alarm
+- CHG_OT_Delay_Alarm
+- CHG_OT_STOP_Alarm
+- CHG_UT_START_Alarm
+- CHG_UT_Delay_Alarm
+- CHG_UT_STOP_Alarm
+- DISC_OT_START_Alarm
+- DISC_OT_Delay_Alarm
+- DISC_OT_STOP_Alarm
+- DISC_UT_START_Alarm
+- DISC_UT_Delay_Alarm
+- DISC_UT_STOP_Alarm
+- MOS_OT_START_Alarm
+- MOS_OT_Delay_Alarm
+- MOS_OT_STOP_Alarm
+- Capacity_Low_Start_Alarm
+- Capacity_Low_Stop_Alarm
+- Vol_Diff_Start_Alarm
+- Vol_Diff_Stop_Alarm
+- ENV_OT_START_Alarm
+- ENV_OT_Delay_Alarm
+- ENV_OT_STOP_Alarm
+- ENV_UT_START_Alarm
+- ENV_UT_Delay_Alarm
+- ENV_UT_STOP_Alarm
+
+These parameters define the thresholds and delays for various alarm conditions reported by the BMS.
+
 ## Protection Parameters
 
 Additionally the following protection parameters are read (one time during startup):
@@ -171,8 +221,6 @@ Additionally the following protection parameters are read (one time during start
 - UV_OFF_Time
 - LC_Style
 - Sleep_Time
-
-Alarm parameters are work in progress.
 
 ## BMS Serial Protocol Description
 

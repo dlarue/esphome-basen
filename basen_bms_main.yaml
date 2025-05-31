@@ -1,0 +1,70 @@
+
+basen_bms:
+  - address: ${basen_bms_address}
+    id: ${basen_bms_id}
+    update_interval: 5s
+    
+# +--------------------------------------+
+# | Component entities                   |
+# +--------------------------------------+
+
+binary_sensor:
+  - platform: basen_bms
+    basen_bms_id: ${basen_bms_id}
+    connected:
+      name: "${name} Connected"
+
+sensor:
+  - platform: basen_bms
+    basen_bms_id: ${basen_bms_id}
+    voltage:
+      name: "${name} voltage"
+    current:
+      name: "${name} current"
+    power:
+      name: "${name} power"
+    state_of_charge:
+      name: "${name} state of charge"
+    state_of_health:
+      name: "${name} state of health"
+    capacity:
+      name: "${name} capacity"
+    cycles:
+      name: "${name} cycles"
+    temperature1:
+      name: "${name} temperature"
+    temperature2:
+      name: "${name} temperature 2"
+    temperature3:
+      name: "${name} temperature 3"
+    temperature4: 
+      name: "${name} temperature 4"
+    temperature_mos:
+      name: "${name} temperature mos"
+    temperature_ambient:
+      name: "${name} temperature ambient"
+    avg_cell_voltage:
+      name: "${name} average cell voltage"
+    min_cell_voltage:
+      name: "${name} minimum cell voltage"
+    max_cell_voltage:
+      name: "${name} maximum cell voltage"
+    min_cell_index:
+      name: "${name} minimum cell index"
+    max_cell_index:
+      name: "${name} maximum cell index"
+    delta_cell_voltage:
+      name: "${name} delta cell voltage"
+
+text_sensor:
+ - platform: basen_bms
+   basen_bms_id: ${basen_bms_id}
+   bms_version:
+     name: "${name} BMS version"
+   barcode:
+     name: "${name} BMS barcode"
+   status_bitmask:
+     name: "${name} Status bitmap"
+   status:
+     name: "${name} Status"
+ 

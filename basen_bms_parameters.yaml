@@ -1,0 +1,192 @@
+
+sensor:
+  - platform: basen_bms
+    basen_bms_id: ${basen_bms_id}
+    CELL_OV_Start:
+      name: "${name} CELL_OV_Start"
+    CELL_OV_Delay:
+      name: "${name} CELL_OV_Delay"
+    CELL_OV_Stop:
+      name: "${name} CELL_OV_Stop"
+    CELL_UV_Start:
+      name: "${name} CELL_UV_Start"
+    CELL_UV_Delay:
+      name: "${name} CELL_UV_Delay"
+    CELL_UV_Stop:
+      name: "${name} CELL_UV_Stop"
+    PACK_OV_Start:
+      name: "${name} PACK_OV_Start"
+    PACK_OV_Delay:
+      name: "${name} PACK_OV_Delay"
+    PACK_OV_Stop:
+      name: "${name} PACK_OV_Stop"
+    PACK_UV_Start:
+      name: "${name} PACK_UV_Start"
+    PACK_UV_Delay:
+      name: "${name} PACK_UV_Delay"
+    PACK_UV_Stop:
+      name: "${name} PACK_UV_Stop"
+    Const_Pack_V:
+      name: "${name} Const_Pack_V"
+    Const_Current:
+      name: "${name} Const_Current"
+    CHG_OC1_Start:
+      name: "${name} CHG_OC1_Start"
+    CHG_OC1_Delay:
+      name: "${name} CHG_OC1_Delay"
+    DISC_OC1_Start:
+      name: "${name} DISC_OC1_Start"
+    DISC_OC1_Delay:
+      name: "${name} DISC_OC1_Delay"
+    CHG_OC2_Start:
+      name: "${name} CHG_OC2_Start"
+    CHG_OC2_Delay:
+      name: "${name} CHG_OC2_Delay"
+    DISC_OC2_Start:
+      name: "${name} DISC_OC2_Start"
+    DISC_OC2_Delay:
+      name: "${name} DISC_OC2_Delay"
+    CHG_OT_START:
+      name: "${name} CHG_OT_START"
+    CHG_OT_Delay:
+      name: "${name} CHG_OT_Delay"
+    CHG_OT_STOP:
+      name: "${name} CHG_OT_STOP"
+    DISC_OT_START:
+      name: "${name} DISC_OT_START"
+    DISC_OT_Delay:
+      name: "${name} DISC_OT_Delay"
+    DISC_OT_STOP:
+      name: "${name} DISC_OT_STOP"
+    CHG_UT_START:
+      name: "${name} CHG_UT_START"
+    CHG_UT_Delay:
+      name: "${name} CHG_UT_Delay"
+    CHG_UT_STOP:
+      name: "${name} CHG_UT_STOP"
+    DISC_UT_START:
+      name: "${name} DISC_UT_START"
+    DISC_UT_Delay:
+      name: "${name} DISC_UT_Delay"
+    DISC_UT_STOP:
+      name: "${name} DISC_UT_STOP"
+    MOS_OT_START:
+      name: "${name} MOS_OT_START"
+    MOS_OT_Delay:
+      name: "${name} MOS_OT_Delay"
+    MOS_OT_STOP:
+      name: "${name} MOS_OT_STOP"
+    ENV_OT_START:
+      name: "${name} ENV_OT_START"
+    ENV_OT_Delay:
+      name: "${name} ENV_OT_Delay"
+    ENV_OT_STOP:
+      name: "${name} ENV_OT_STOP"
+    ENV_UT_START:
+      name: "${name} ENV_UT_START"
+    ENV_UT_Delay:
+      name: "${name} ENV_UT_Delay"
+    ENV_UT_STOP:
+      name: "${name} ENV_UT_STOP"
+    Balance_Start_Vol:
+      name: "${name} Balance_Start_Vol"
+    Balance_Start_Diff:
+      name: "${name} Balance_Start_Diff"
+    Sleep_Cell_Volt:
+      name: "${name} Sleep_Cell_Volt"
+    Shorts_Delay:
+      name: "${name} Shorts_Delay"
+    Standby_Time:
+      name: "${name} Standby_Time"
+    UV_OFF_Time:
+      name: "${name} UV_OFF_Time"
+    LC_Style:
+      name: "${name} LC_Style"
+    Sleep_Time:
+      name: "${name} Sleep_Time"
+    CELL_OV_Start_Alarm:
+      name: "${name} CELL_OV_Start_Alarm"
+    CELL_OV_Delay_Alarm:
+      name: "${name} CELL_OV_Delay_Alarm"
+    CELL_OV_Stop_Alarm:
+      name: "${name} CELL_OV_Stop_Alarm"
+    CELL_UV_Start_Alarm:
+      name: "${name} CELL_UV_Start_Alarm"
+    CELL_UV_Delay_Alarm:
+      name: "${name} CELL_UV_Delay_Alarm"
+    CELL_UV_Stop_Alarm:
+      name: "${name} CELL_UV_Stop_Alarm"
+    PACK_OV_Start_Alarm:
+      name: "${name} PACK_OV_Start_Alarm"
+    PACK_OV_Delay_Alarm:
+      name: "${name} PACK_OV_Delay_Alarm"
+    PACK_OV_Stop_Alarm:
+      name: "${name} PACK_OV_Stop_Alarm"
+    PACK_UV_Start_Alarm:
+      name: "${name} PACK_UV_Start_Alarm"
+    PACK_UV_Delay_Alarm:
+      name: "${name} PACK_UV_Delay_Alarm"
+    PACK_UV_Stop_Alarm:
+      name: "${name} PACK_UV_Stop_Alarm"
+    CHG_OC_Start_Alarm:
+      name: "${name} CHG_OC_Start_Alarm"
+    CHG_OC_Delay_Alarm:
+      name: "${name} CHG_OC_Delay_Alarm"
+    CHG_OC_Stop_Alarm:
+      name: "${name} CHG_OC_Stop_Alarm"
+    DISC_OC_Start_Alarm:
+      name: "${name} DISC_OC_Start_Alarm"
+    DISC_OC_Delay_Alarm:
+      name: "${name} DISC_OC_Delay_Alarm"
+    DISC_OC_Stop_Alarm:
+      name: "${name} DISC_OC_Stop_Alarm"
+    CHG_OT_START_Alarm:
+      name: "${name} CHG_OT_START_Alarm"
+    CHG_OT_Delay_Alarm:
+      name: "${name} CHG_OT_Delay_Alarm"
+    CHG_OT_STOP_Alarm:
+      name: "${name} CHG_OT_STOP_Alarm"
+    CHG_UT_START_Alarm:
+      name: "${name} CHG_UT_START_Alarm"
+    CHG_UT_Delay_Alarm:
+      name: "${name} CHG_UT_Delay_Alarm"
+    CHG_UT_STOP_Alarm:
+      name: "${name} CHG_UT_STOP_Alarm"
+    DISC_OT_START_Alarm:
+      name: "${name} DISC_OT_START_Alarm"
+    DISC_OT_Delay_Alarm:
+      name: "${name} DISC_OT_Delay_Alarm"
+    DISC_OT_STOP_Alarm:
+      name: "${name} DISC_OT_STOP_Alarm"
+    DISC_UT_START_Alarm:
+      name: "${name} DISC_UT_START_Alarm"
+    DISC_UT_Delay_Alarm:
+      name: "${name} DISC_UT_Delay_Alarm"
+    DISC_UT_STOP_Alarm:
+      name: "${name} DISC_UT_STOP_Alarm"
+    MOS_OT_START_Alarm:
+      name: "${name} MOS_OT_START_Alarm"
+    MOS_OT_Delay_Alarm:
+      name: "${name} MOS_OT_Delay_Alarm"
+    MOS_OT_STOP_Alarm:
+      name: "${name} MOS_OT_STOP_Alarm"
+    ENV_OT_START_Alarm:
+      name: "${name} ENV_OT_START_Alarm"
+    ENV_OT_Delay_Alarm:
+      name: "${name} ENV_OT_Delay_Alarm"
+    ENV_OT_STOP_Alarm:
+      name: "${name} ENV_OT_STOP_Alarm"
+    ENV_UT_START_Alarm:
+      name: "${name} ENV_UT_START_Alarm"
+    ENV_UT_Delay_Alarm:
+      name: "${name} ENV_UT_Delay_Alarm"
+    ENV_UT_STOP_Alarm:
+      name: "${name} ENV_UT_STOP_Alarm"
+    Capacity_Low_Start_Alarm:
+      name: "${name} Capacity_Low_Start_Alarm"
+    Capacity_Low_Stop_Alarm:
+      name: "${name} Capacity_Low_Stop_Alarm"
+    Vol_Diff_Start_Alarm:
+      name: "${name} Vol_Diff_Start_Alarm"
+    Vol_Diff_Stop_Alarm:
+      name: "${name} Vol_Diff_Stop_Alarm"

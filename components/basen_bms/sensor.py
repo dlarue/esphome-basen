@@ -130,6 +130,52 @@ PARAMETERS = [
     "Sleep_Time",               # 0x32
 ]
 
+ALARM_PARAMETERS = [
+    "CELL_OV_Start_Alarm",       # 0x00
+    "CELL_OV_Delay_Alarm",       # 0x01
+    "CELL_OV_Stop_Alarm",        # 0x02
+    "CELL_UV_Start_Alarm",       # 0x03
+    "CELL_UV_Delay_Alarm",       # 0x04
+    "CELL_UV_Stop_Alarm",        # 0x05
+    "PACK_OV_Start_Alarm",       # 0x06
+    "PACK_OV_Delay_Alarm",       # 0x07
+    "PACK_OV_Stop_Alarm",        # 0x08
+    "PACK_UV_Start_Alarm",       # 0x09
+    "PACK_UV_Delay_Alarm",       # 0x0A
+    "PACK_UV_Stop_Alarm",        # 0x0B
+    "CHG_OC_Start_Alarm",        # 0x0C
+    "CHG_OC_Delay_Alarm",        # 0x0D
+    "CHG_OC_Stop_Alarm",         # 0x0E
+    "DISC_OC_Start_Alarm",       # 0x0F
+    "DISC_OC_Delay_Alarm",       # 0x10
+    "DISC_OC_Stop_Alarm",        # 0x11
+    "CHG_OT_START_Alarm",        # 0x12
+    "CHG_OT_Delay_Alarm",        # 0x13
+    "CHG_OT_STOP_Alarm",         # 0x14
+    "CHG_UT_START_Alarm",        # 0x15
+    "CHG_UT_Delay_Alarm",        # 0x16
+    "CHG_UT_STOP_Alarm",         # 0x17
+    "DISC_OT_START_Alarm",       # 0x18
+    "DISC_OT_Delay_Alarm",       # 0x19
+    "DISC_OT_STOP_Alarm",        # 0x1A
+    "DISC_UT_START_Alarm",       # 0x1B
+    "DISC_UT_Delay_Alarm",       # 0x1C
+    "DISC_UT_STOP_Alarm",        # 0x1D
+    "MOS_OT_START_Alarm",        # 0x1E
+    "MOS_OT_Delay_Alarm",        # 0x1F
+    "MOS_OT_STOP_Alarm",         # 0x20
+    "Capacity_Low_Start_Alarm",  # 0x21
+    "Capacity_Low_Stop_Alarm",   # 0x22
+    "Vol_Diff_Start_Alarm",      # 0x23
+    "Vol_Diff_Stop_Alarm",       # 0x24
+    "ENV_OT_START_Alarm",        # 0x25
+    "ENV_OT_Delay_Alarm",        # 0x26
+    "ENV_OT_STOP_Alarm",         # 0x27
+    "ENV_UT_START_Alarm",        # 0x28
+    "ENV_UT_Delay_Alarm",        # 0x29
+    "ENV_UT_STOP_Alarm",         # 0x2A
+]
+
 
 CONFIG_SCHEMA = cv.Schema(
     {
@@ -267,9 +313,9 @@ CONFIG_SCHEMA = cv.Schema(
     }
 )
 
-for param in PARAMETERS:
+def add_param_sensor(schema, param):
     if "Delay" in param:
-        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+        return schema.extend({
             cv.Optional(param): sensor.sensor_schema(
                 unit_of_measurement=UNIT_MILLISECOND,
                 icon="mdi:timer-sand",
@@ -278,7 +324,7 @@ for param in PARAMETERS:
             )
         })
     elif "Time" in param:
-        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+        return schema.extend({
             cv.Optional(param): sensor.sensor_schema(
                 unit_of_measurement=UNIT_MINUTE,
                 icon="mdi:timer-sand",
@@ -287,7 +333,7 @@ for param in PARAMETERS:
             )
         })
     elif "OT" in param or "UT" in param:
-        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+        return schema.extend({
             cv.Optional(param): sensor.sensor_schema(
                 unit_of_measurement=UNIT_CELSIUS,
                 icon=ICON_THERMOMETER,
@@ -296,7 +342,7 @@ for param in PARAMETERS:
             )
         })
     elif "OC" in param or "Current" in param:
-        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+        return schema.extend({
             cv.Optional(param): sensor.sensor_schema(
                 unit_of_measurement=UNIT_AMPERE,
                 icon="mdi:current-dc",
@@ -305,7 +351,7 @@ for param in PARAMETERS:
             )
         })
     elif "_Diff" in param or "V" in param:
-        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+        return schema.extend({
             cv.Optional(param): sensor.sensor_schema(
                 unit_of_measurement=UNIT_VOLT,
                 icon=ICON_GAUGE,
@@ -313,8 +359,17 @@ for param in PARAMETERS:
                 device_class=DEVICE_CLASS_VOLTAGE
             )
         })
+    elif "Capacity_Low" in param:
+        return schema.extend({
+            cv.Optional(param): sensor.sensor_schema(
+                unit_of_measurement=UNIT_PERCENT,
+                icon=ICON_GAUGE,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_EMPTY
+            )
+        })
     else:
-        CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+        return schema.extend({
             cv.Optional(param): sensor.sensor_schema(
                 unit_of_measurement=UNIT_EMPTY,
                 icon=ICON_COUNTER,
@@ -322,6 +377,12 @@ for param in PARAMETERS:
                 device_class=DEVICE_CLASS_EMPTY
             )
         })
+
+for param in PARAMETERS:
+    CONFIG_SCHEMA = add_param_sensor(CONFIG_SCHEMA, param)
+
+for param in ALARM_PARAMETERS:
+    CONFIG_SCHEMA = add_param_sensor(CONFIG_SCHEMA, param)
 
 def to_code(config):
     hub = yield cg.get_variable(config[CONF_BASEN_BMS_ID])
@@ -335,3 +396,8 @@ def to_code(config):
             conf = config[key]
             sens = yield sensor.new_sensor(conf)
             cg.add(getattr(hub, f"set_param_sensor")(sens, index))
+    for index, key in enumerate(ALARM_PARAMETERS):
+        if key in config:
+            conf = config[key]
+            sens = yield sensor.new_sensor(conf)
+            cg.add(getattr(hub, f"set_alarm_param_sensor")(sens, index))
