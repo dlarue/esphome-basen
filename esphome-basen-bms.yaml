@@ -100,8 +100,21 @@ ota:
   platform: esphome
 
 logger:
-  level: INFO
   baud_rate: 0
+  level: INFO
+  #logs:
+    #basen_controller: VERY_VERBOSE
+    #basen_bms: VERY_VERBOSE
+    #scheduler: DEBUG
+    #component: DEBUG
+    #sensor: DEBUG
+    #mqtt: INFO
+    #mqtt.idf: INFO
+    #mqtt.component: INFO
+    #mqtt.sensor: INFO
+    #mqtt.switch: INFO
+    #api.service: INFO
+    #api: INFO
 
 api:
 

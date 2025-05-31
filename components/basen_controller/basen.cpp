@@ -8,12 +8,13 @@ namespace basen {
 
 static const char *const TAG = "basen";
 
-static const uint8_t SOI = 0x7E;
-static const uint8_t EOI = 0x0D;
-#define COMMAND_INFO 0x01
-#define COMMAND_BMS_VERSION 0x33
-#define COMMAND_BARCODE 0x42
-#define COMMAND_PARAMETERS 0xE043
+constexpr uint8_t SOI = 0x7E;
+constexpr uint8_t EOI = 0x0D;
+
+constexpr uint8_t COMMAND_INFO         = 0x01;
+constexpr uint8_t COMMAND_BMS_VERSION  = 0x33;
+constexpr uint8_t COMMAND_BARCODE      = 0x42;
+constexpr uint16_t COMMAND_PARAMETERS  = 0xE043;
 
 // Status messages
 static struct {
@@ -138,6 +139,13 @@ struct {
 };
 
 
+/**
+ * @brief Logs the configuration details of the BasenController and its devices.
+ *
+ * This function outputs information about each device managed by the controller,
+ * including its address and timeout count, using the ESP_LOGI logging macro.
+ * It also checks the UART settings with a baud rate of 9600.
+ */
 void BasenController::dump_config() {
   ESP_LOGI(TAG, "Basen:");
 
@@ -149,6 +157,16 @@ void BasenController::dump_config() {
   check_uart_settings(9600);
 }
 
+
+/**
+ * @brief Sets the state of the BasenController.
+ *
+ * This method updates the internal state of the controller if the provided state is valid
+ * and different from the current state. If the state is invalid (greater than STATE_RX_DATA),
+ * a warning is logged and the state is not changed.
+ *
+ * @param state The new state to set. Must be less than or equal to STATE_RX_DATA.
+ */
 void BasenController::set_state(uint8_t state)
 {
   if (state > STATE_RX_DATA) {
@@ -163,6 +181,16 @@ void BasenController::set_state(uint8_t state)
   this->state_ = state;
 }
 
+
+/**
+ * @brief Empties the RX buffer by reading and discarding all available bytes.
+ *
+ * This function continuously reads bytes from the RX buffer until it is empty
+ * or a maximum of 255 bytes have been read. It returns true if any bytes were
+ * read and discarded, otherwise returns false.
+ *
+ * @return true if any bytes were removed from the RX buffer, false otherwise.
+ */
 bool BasenController::empty_rx (void) {
   uint8_t data;
   uint8_t count = 255;
@@ -176,6 +204,19 @@ bool BasenController::empty_rx (void) {
   return result;
 }
 
+
+/**
+ * @brief Calculates a checksum for a given data buffer.
+ *
+ * This function computes a checksum by iterating over the input data array,
+ * performing an XOR operation on each byte to accumulate `num1`, and summing
+ * all bytes to accumulate `num2`. The final checksum is obtained by XOR'ing
+ * `num1` and `num2`, and masking the result to 8 bits.
+ *
+ * @param data Pointer to the input data buffer.
+ * @param len Number of bytes in the data buffer.
+ * @return uint8_t The calculated 8-bit checksum.
+ */
 uint8_t BasenController::checksum (const uint8_t *data, uint8_t len) {
   uint8_t num1 = 0;
   uint16_t num2 = 0;
@@ -188,6 +229,16 @@ uint8_t BasenController::checksum (const uint8_t *data, uint8_t len) {
   return (uint8_t)((num1 ^ num2) & 0xFF);
 }
 
+/**
+ * @brief Sends a command to the specified BasenBMS device.
+ *
+ * Constructs a command packet with the given command and BMS address,
+ * calculates the checksum, and transmits the packet. The function also
+ * updates internal state and timestamps for command transmission.
+ *
+ * @param BMS Pointer to the BasenBMS device to which the command will be sent.
+ * @param command The 16-bit command code to send.
+ */
 void BasenController::send_command(BasenBMS *BMS, const uint16_t command) {
   uint8_t data[6] = {SOI, BMS->address_, (uint8_t)(command & 0xFF), (uint8_t)(command >> 8), 0xFE, EOI};
 
@@ -212,6 +263,14 @@ void BasenController::send_command(BasenBMS *BMS, const uint16_t command) {
   set_state (STATE_COMMAND_TX);
 }
 
+/**
+ * @brief Checks if the current device communication has timed out.
+ *
+ * This method compares the elapsed time since the last transmission to the configured timeout value.
+ * If a timeout is detected, it logs a warning, increments the device's timeout counter, updates the
+ * connected binary sensor to indicate disconnection, marks the device state as done, resets the current
+ * device pointer, and sets the controller state to bus check.
+ */
 void BasenController::check_timeout ()
 {
   // Check for timeout while waiting for data
@@ -228,6 +287,21 @@ void BasenController::check_timeout ()
   }
 }
 
+/**
+ * @brief Updates the current device by sending appropriate commands based on its state.
+ *
+ * This method checks the current device and sends commands to retrieve information
+ * such as BMS version, barcode, parameters, or general info, depending on what data
+ * is missing or outdated. It ensures a minimum delay between consecutive commands
+ * to the device. The sequence of commands is as follows:
+ *   - If the BMS version is not available, request it.
+ *   - Else, if the barcode is not available, request it.
+ *   - Else, if the parameters have not been received, request them.
+ *   - Else, if more than 1 second has passed since the last transmission, request general info.
+ *
+ * The function returns immediately if there is no current device or if the minimum
+ * command delay has not elapsed since the last command.
+ */
 void BasenController::update_device ()
 {
   if (current_ == NULL)
@@ -255,6 +329,28 @@ void BasenController::update_device ()
   }
 }
 
+/**
+ * @brief Main UART communication loop for the BasenController.
+ *
+ * This function manages the UART state machine for communicating with devices on the bus.
+ * It checks the current state and performs actions such as checking for bus idleness,
+ * sending commands, waiting for responses, receiving and validating data frames, and
+ * handling errors or timeouts.
+ *
+ * The function processes the following states:
+ * - STATE_BUS_CHECK: Verifies if the bus is idle and clears the RX buffer if necessary.
+ * - STATE_IDLE: Initiates device update by sending commands.
+ * - STATE_COMMAND_TX: Prepares to receive a response after sending a command.
+ * - STATE_RX_HEADER: Receives and validates the header of the incoming data frame.
+ * - STATE_RX_DATA: Receives the data payload and validates the frame.
+ *
+ * The function also handles frame buffer management, checks for buffer overflows,
+ * validates frame headers, checks data length, verifies checksums, and processes
+ * received data or error codes.
+ *
+ * State transitions are managed internally, and appropriate logging is performed
+ * for debugging and error reporting.
+ */
 void BasenController::uart_loop() {
   // Check state
   switch (this->state_) {
@@ -396,11 +492,23 @@ void BasenController::uart_loop() {
   }
   
   // Handle data
-  handle_data (frame_, data, data_size);
+  if (current_->handle_data (frame_, data, data_size)) {
+    // Got all data for current BMS
+    current_ = NULL;
+  }
 
   set_state (STATE_IDLE);
 }
 
+/**
+ * @brief Queues a BasenBMS device for updating.
+ *
+ * If there is no device currently being updated, this function sets the provided
+ * device as the current device and marks its state as updating. If a device is
+ * already being updated, the function returns immediately without making changes.
+ *
+ * @param device Pointer to the BasenBMS device to be queued for updating.
+ */
 void BasenController::queue_device(BasenBMS *device) {
   // Check if we already have a device updating
   if (current_ != NULL)
@@ -412,6 +520,18 @@ void BasenController::queue_device(BasenBMS *device) {
   ESP_LOGV(TAG, "Active device with address %02X", device->address_);
 }
 
+/**
+ * @brief Main loop function for the BasenController.
+ *
+ * This function manages the state and operation of all connected BasenBMS devices.
+ * - Enables the controller after a 10-second delay from startup.
+ * - If not enabled, resets the current device and sets the controller state to STATE_BUS_CHECK.
+ * - Iterates through all managed devices and:
+ *   - Queues devices that require an update.
+ *   - Publishes data for devices ready to publish, then exits early to keep loop time low.
+ * - Resets devices that have completed their operation back to the idle state.
+ * - Calls the UART loop handler at the end of each cycle.
+ */
 void BasenController::loop() {
   if (millis() >= 1000*10)
     enable_ = true;  // Enable after 10 seconds
@@ -459,7 +579,307 @@ void BasenController::loop() {
   uart_loop();
 }
 
-uint8_t BasenController::handle_cell_voltages (const uint8_t *data, uint8_t length) {
+/**
+ * @brief Triggers an update request for the BasenBMS.
+ *
+ * If the current state is BMS_STATE_IDLE, this method sets the state to BMS_STATE_WANT_UPDATE,
+ * indicating that an update is desired. This function is typically called to initiate a new
+ * update cycle for the BMS (Battery Management System).
+ */
+void BasenBMS::update()
+{
+  if (this->state_ == BMS_STATE_IDLE) {
+    this->state_ = BMS_STATE_WANT_UPDATE;  // Set update flag
+  }
+}
+
+/**
+ * @brief Publishes the current status of the Basen BMS.
+ *
+ * This function performs two main tasks:
+ * 1. It formats the internal status bitmask as a colon-separated hexadecimal string
+ *    and publishes it via the `status_bitmask_sensor_`.
+ * 2. It constructs a human-readable status message by checking each defined status message
+ *    against the status bitmask. If any status bits are set, their corresponding messages
+ *    are concatenated and published via the `status_sensor_`. If no status bits are set,
+ *    "Idle" is published as the status.
+ */
+void BasenBMS::publish_status()
+{
+  // Create a string containing all bytes
+  char status_bitmask[40] = {0};
+
+  for (uint8_t i = 0; i < sizeof (this->status_bitmask_); i++) {
+    sprintf (status_bitmask + i * 3, "%02X:", this->status_bitmask_[i]);
+  }
+
+  status_bitmask[sizeof (this->status_bitmask_)*3 - 1] = '\0';
+  this->status_bitmask_sensor_->publish_state(status_bitmask);
+
+  // Create status message
+  std::string status_message;
+
+  for (uint8_t i = 0; i < sizeof(status_messages) / sizeof(status_messages[0]); i++) {
+    if (this->status_bitmask_[status_messages[i].offset] & status_messages[i].bit) {
+      if (!status_message.empty())
+        status_message += ", ";
+      status_message += status_messages[i].message;
+    }
+  }
+
+  if (status_message.empty()) {
+    status_message = "Idle";
+  }
+
+  this->status_sensor_->publish_state(status_message);
+}
+
+/**
+ * @brief Publishes sensor data in blocks to reduce loop time.
+ *
+ * This method checks if the current state is BMS_STATE_PUBLISH. If so, it publishes
+ * sensor readings in multiple steps (blocks) based on the value of publish_count_.
+ * Each case in the switch statement publishes a group of related sensor values and
+ * increments publish_count_ to move to the next block on the next call.
+ * When all blocks have been published, publish_count_ is reset and the state is set to BMS_STATE_DONE.
+ *
+ * The publishing is divided as follows:
+ *   - Block 0: Voltage, current, power, capacity, state of charge (SOC), state of health (SOH), and cycles.
+ *   - Block 1: Average, minimum, and maximum cell voltages, their indices, and cell voltage delta.
+ *   - Block 2: Temperatures (cells, MOSFET, ambient) and status.
+ *
+ * This approach helps to distribute the workload across multiple loop iterations, reducing the time spent in each loop.
+ */
+void BasenBMS::publish()
+{
+  if (this->state_ != BMS_STATE_PUBLISH)
+    return;
+
+  // Publish sensors in blocks to reduce loop time
+  switch (this->publish_count_) {
+    case 0:
+      voltage_sensor_->publish_state(this->voltage_);
+      current_sensor_->publish_state(this->current_);
+      power_sensor_->publish_state(this->voltage_ * this->current_);
+      capacity_sensor_->publish_state(this->capacity_);
+      soc_sensor_->publish_state(this->soc_);
+      soh_sensor_->publish_state(this->soh_);
+      cycles_sensor_->publish_state(this->cycles_);
+      this->publish_count_++;
+      break;
+    case 1:
+      avg_cell_voltage_sensor_->publish_state(this->cell_avg_voltage_);
+      min_cell_voltage_sensor_->publish_state(this->cell_min_voltage_);
+      max_cell_voltage_sensor_->publish_state(this->cell_max_voltage_);
+      min_cell_index_sensor_->publish_state(this->cell_min_index_);
+      max_cell_index_sensor_->publish_state(this->cell_max_index_);
+      delta_cell_voltage_sensor_->publish_state(this->cell_max_voltage_ - this->cell_min_voltage_);
+      this->publish_count_++;
+      break;
+    case 2:
+      temperature_sensor_[0]->publish_state(this->temperature_[0]);
+      temperature_sensor_[1]->publish_state(this->temperature_[1]);
+      temperature_sensor_[2]->publish_state(this->temperature_[2]);
+      temperature_sensor_[3]->publish_state(this->temperature_[3]);
+      temperature_sensor_[4]->publish_state(this->temperature_mos_);
+      temperature_sensor_[5]->publish_state(this->temperature_ambient_);
+      publish_status();
+      this->publish_count_++;
+      break;
+    default:
+      this->publish_count_ = 0;
+      this->state_ = BMS_STATE_DONE;
+      break;
+  }
+}
+
+/**
+ * @brief Handles the parsing and processing of information data received from the Basen controller.
+ *
+ * This function processes a data packet containing various information such as cell voltages,
+ * current, state of charge (SoC), capacity, temperatures, status bitmask, cycles, total voltage,
+ * and state of health (SoH). The function validates the packet length and version, then iterates
+ * through the data fields, updating the corresponding member variables of the controller.
+ *
+ * @param data Pointer to the received data buffer.
+ * @param length Length of the received data buffer.
+ *
+ * The expected data format is:
+ * - Byte 0: Version (must be 0x01)
+ * - Bytes 1..n: Data fields, each consisting of:
+ *   - Type (1 byte)
+ *   - Count (1 byte)
+ *   - Data (variable length, depending on type and count)
+ *
+ * Logs warnings if the data is invalid or if any field is out of expected range.
+ */
+void BasenBMS::handle_info (const uint8_t *data, uint8_t length) {
+  // Handle info data
+  if (length != 0x7C) {
+    ESP_LOGW(TAG, "Invalid length for COMMAND_INFO: %d", length);
+    return;
+  }
+  if (data[0] != 0x01) {
+    ESP_LOGW(TAG, "Invalid version for COMMAND_INFO: %02X", data[0]);
+    return;
+  }
+
+  uint8_t *position = const_cast<uint8_t *>(data) + 1;  // Skip version byte
+  length--;
+
+  uint8_t processed = 0;
+  // Process cell voltages
+  processed = handle_cell_voltages(position, length);
+
+  if (processed == 0) {
+    return;
+  }
+
+  position += processed;
+  length -= processed;
+
+  while (length > 0) {
+    if (length < 2) {
+      ESP_LOGW(TAG, "Invalid length for next position: %d", length);
+      return;
+    }
+
+    uint8_t type = position[0];  // Data type
+    uint8_t count = position[1]; // Number of elements
+    // Size in bytes of one element
+    uint8_t size = 2;
+    if (type > 0x0A)
+        size = 4;
+
+    // Get first data element
+    uint16_t data16 = 0;
+    if (count && length >= 4) {
+      data16 = (position[2] << 8) | position[3];
+    }
+  
+    switch (position[0]) {
+      case 0x02:  // Current
+        this->current_ = (data16 / -100.0f) + 300;  // Convert to A
+        break;
+      case 0x03:  // SoC
+        this->soc_ = data16 / 100.0f;  // Publish SoC in percentage
+        break;
+      case 0x04:  // Capacity
+        this->capacity_ = data16 / 100;  // Publish capacity in Ah
+        break;
+      case 0x05:  // Temperature
+        if (count > 6) {
+          ESP_LOGW(TAG, "Invalid temperature count: %d", count);
+          break;
+        }
+        for (uint8_t i = 0; i < count; i++) {
+          uint8_t type = position[2 + 2*i];  // Type of temperature sensor
+          int8_t value = position[2 + 2*i + 1] - 50;  // Value of temperature sensor
+          if (type == 0x40) {
+            // MOS temperature
+            this->temperature_mos_ = value;
+          } else if (type == 0x20) {
+            // Ambient temperature
+            this->temperature_ambient_ = value;
+          } else {
+            // Normal temperature sensor
+            if (i < 4)
+              this->temperature_[i] = value;
+          }
+        }
+        break;
+      case 0x06:  // Status bitmask
+        // Create a string containing all bytes
+        if (!count || (count > 5))
+          break;
+        memcpy (this->status_bitmask_, position + 2, count * size);
+        break;
+      case 0x07:  // Cycles
+        this->cycles_ = data16;
+        break;
+      case 0x08:  // Total voltage
+        this->voltage_ = data16 / 100.0f;
+        break;
+      case 0x09:  // SoH
+        this->soh_ = data16 / 100.0f;
+        break;
+      default:        
+        ESP_LOGV(TAG, "Data type %02X with count %d", type, count);
+    }
+
+    // Advance to next data type
+    uint16_t data_size = count * size + 2;  // 2 bytes for type and count
+    if (length < data_size) {
+      ESP_LOGW(TAG, "Not enough data for type %02X with count %d", type, count);
+      break;
+    }
+
+    length -= data_size;
+    position += data_size;
+  }
+}
+
+/**
+ * @brief Handles incoming data packets for the BasenController.
+ *
+ * This function processes data received from the BMS (Battery Management System)
+ * based on the command specified in the header. It updates the relevant sensors
+ * or handles parameters accordingly. If the command is not recognized, a warning
+ * is logged.
+ *
+ * @param header Pointer to the header of the received packet. The third byte (header[2]) specifies the command.
+ * @param data Pointer to the data payload associated with the command.
+ * @param length Length of the data payload.
+ * 
+ * @return true  - Done
+ *         false - Waiting for next data
+ */
+bool BasenBMS::handle_data (const uint8_t *header, const uint8_t *data, uint8_t length) {
+  // Handle data based on the command
+  switch (header[2]) {
+    case COMMAND_BMS_VERSION:
+      // BMS Version
+      this->bms_version_text_sensor_->publish_state(std::string(reinterpret_cast<const char *>(data), length));
+      ESP_LOGD(TAG, "Address: %d BMS Version: %s", this->address_, this->bms_version_text_sensor_->get_state().c_str());
+      break;
+    case COMMAND_BARCODE:
+      // Barcode
+      this->barcode_text_sensor_->publish_state(std::string(reinterpret_cast<const char *>(data), length));
+      ESP_LOGD(TAG, "Address: %d Barcode: %s", this->address_, this->barcode_text_sensor_->get_state().c_str());
+      break;
+    case (uint8_t)COMMAND_PARAMETERS:
+      handle_parameters(data, length);
+      break;
+    case COMMAND_INFO:
+      handle_info(data, length);
+      // All data has been updated, mark the device as updated and connected
+      this->state_ = BasenBMS::BMS_STATE_PUBLISH;
+      if (!this->connected_binary_sensor_->state)
+        this->connected_binary_sensor_->publish_state(true);
+      return true;
+    default:
+      ESP_LOGW(TAG, "Unknown command: %02X", header[2]);
+      return true;
+  }
+
+  return false;
+}
+
+/**
+ * @brief Handles and processes cell voltage data from a given byte array.
+ *
+ * This function parses the provided data buffer to extract individual cell voltages,
+ * calculates the average, minimum, and maximum cell voltages, and updates the current_
+ * object with these values and their corresponding cell indices. It also performs
+ * validation on the input data to ensure correctness.
+ *
+ * @param data   Pointer to the byte array containing cell voltage data.
+ *               The first byte indicates the number of cells, followed by
+ *               two bytes per cell representing the voltage in millivolts (big-endian).
+ * @param length Length of the data buffer in bytes.
+ * @return The number of bytes processed from the data buffer, or 0 if an error occurred.
+ */
+uint8_t BasenBMS::handle_cell_voltages (const uint8_t *data, uint8_t length) {
   if (length < 1) {
     ESP_LOGW(TAG, "Invalid length for cell voltages: %d", length);
     return 0;
@@ -506,237 +926,34 @@ uint8_t BasenController::handle_cell_voltages (const uint8_t *data, uint8_t leng
   cell_avg_voltage /= num_cells;  // Calculate average voltage
 
   // Publish calculated values
-  if (current_ != NULL) {
-    current_->cell_avg_voltage_ = cell_avg_voltage;
-    current_->cell_min_voltage_ = cell_min_voltage;
-    current_->cell_max_voltage_ = cell_max_voltage;
-    current_->cell_min_index_ = min_cell_index;
-    current_->cell_max_index_ = max_cell_index;
-  }
+  this->cell_avg_voltage_ = cell_avg_voltage;
+  this->cell_min_voltage_ = cell_min_voltage;
+  this->cell_max_voltage_ = cell_max_voltage;
+  this->cell_min_index_ = min_cell_index;
+  this->cell_max_index_ = max_cell_index;
 
   // Return the number of bytes processed
   return 1 + num_cells * 2;
 }
 
-void BasenController::handle_info (const uint8_t *data, uint8_t length) {
-  // Handle info data
-  if (length != 0x7C) {
-    ESP_LOGW(TAG, "Invalid length for COMMAND_INFO: %d", length);
-    return;
-  }
-  if (data[0] != 0x01) {
-    ESP_LOGW(TAG, "Invalid version for COMMAND_INFO: %02X", data[0]);
-    return;
-  }
-
-  uint8_t *position = const_cast<uint8_t *>(data) + 1;  // Skip version byte
-  length--;
-
-  uint8_t processed = 0;
-  // Process cell voltages
-  processed = handle_cell_voltages(position, length);
-
-  if (processed == 0) {
-    return;
-  }
-
-  position += processed;
-  length -= processed;
-
-  while (length > 0) {
-    if (length < 2) {
-      ESP_LOGW(TAG, "Invalid length for next position: %d", length);
-      return;
-    }
-
-    uint8_t type = position[0];  // Data type
-    uint8_t count = position[1]; // Number of elements
-    // Size in bytes of one element
-    uint8_t size = 2;
-    if (type > 0x0A)
-        size = 4;
-
-    // Get first data element
-    uint16_t data16 = 0;
-    if (count && length >= 4) {
-      data16 = (position[2] << 8) | position[3];
-    }
-  
-    switch (position[0]) {
-      case 0x02:  // Current
-        current_->current_ = (data16 / -100.0f) + 300;  // Convert to A
-        break;
-      case 0x03:  // SoC
-        current_->soc_ = data16 / 100.0f;  // Publish SoC in percentage
-        break;
-      case 0x04:  // Capacity
-        current_->capacity_ = data16 / 100;  // Publish capacity in Ah
-        break;
-      case 0x05:  // Temperature
-        if (count > 6) {
-          ESP_LOGW(TAG, "Invalid temperature count: %d", count);
-          break;
-        }
-        for (uint8_t i = 0; i < count; i++) {
-          uint8_t type = position[2 + 2*i];  // Type of temperature sensor
-          int8_t value = position[2 + 2*i + 1] - 50;  // Value of temperature sensor
-          if (type == 0x40) {
-            // MOS temperature
-            current_->temperature_mos_ = value;
-          } else if (type == 0x20) {
-            // Ambient temperature
-            current_->temperature_ambient_ = value;
-          } else {
-            // Normal temperature sensor
-            if (i < 4)
-              current_->temperature_[i] = value;
-          }
-        }
-        break;
-      case 0x06:  // Status bitmask
-        // Create a string containing all bytes
-        if (!count || (count > 5))
-          break;
-        memcpy (current_->status_bitmask_, position + 2, count * size);
-        break;
-      case 0x07:  // Cycles
-        current_->cycles_ = data16;
-        break;
-      case 0x08:  // Total voltage
-        current_->voltage_ = data16 / 100.0f;
-        break;
-      case 0x09:  // SoH
-        current_->soh_ = data16 / 100.0f;
-        break;
-      default:        
-        ESP_LOGV(TAG, "Data type %02X with count %d", type, count);
-    }
-
-    // Advance to next data type
-    uint16_t data_size = count * size + 2;  // 2 bytes for type and count
-    if (length < data_size) {
-      ESP_LOGW(TAG, "Not enough data for type %02X with count %d", type, count);
-      break;
-    }
-
-    length -= data_size;
-    position += data_size;
-  }
-}
-
-void BasenController::handle_data (const uint8_t *header, const uint8_t *data, uint8_t length) {
-  if (current_ == NULL)
-    return;
-
-  // Handle data based on the command
-  switch (header[2]) {
-    case COMMAND_BMS_VERSION:
-      // BMS Version
-      current_->bms_version_text_sensor_->publish_state(std::string(reinterpret_cast<const char *>(data), length));
-      ESP_LOGD(TAG, "Address: %d BMS Version: %s", current_->address_, current_->bms_version_text_sensor_->get_state().c_str());
-      break;
-    case COMMAND_BARCODE:
-      // Barcode
-      current_->barcode_text_sensor_->publish_state(std::string(reinterpret_cast<const char *>(data), length));
-      ESP_LOGD(TAG, "Address: %d Barcode: %s", current_->address_, current_->barcode_text_sensor_->get_state().c_str());
-      break;
-    case (uint8_t)COMMAND_PARAMETERS:
-      current_->handle_parameters(data, length);
-      break;
-    case COMMAND_INFO:
-      handle_info(data, length);
-      // All data has been updated, mark the device as updated and connected
-      current_->state_ = BasenBMS::BMS_STATE_PUBLISH;
-      if (!current_->connected_binary_sensor_->state)
-        current_->connected_binary_sensor_->publish_state(true);
-      current_ = NULL;
-      break;
-    default:
-      ESP_LOGW(TAG, "Unknown command: %02X", header[2]);
-      break;
-  }
-}
-
-void BasenBMS::update()
-{
-  if (this->state_ == BMS_STATE_IDLE) {
-    this->state_ = BMS_STATE_WANT_UPDATE;  // Set update flag
-  }
-}
-
-void BasenBMS::publish_status()
-{
-  // Create a string containing all bytes
-  char status_bitmask[40] = {0};
-
-  for (uint8_t i = 0; i < sizeof (this->status_bitmask_); i++) {
-    sprintf (status_bitmask + i * 3, "%02X:", this->status_bitmask_[i]);
-  }
-
-  status_bitmask[sizeof (this->status_bitmask_)*3 - 1] = '\0';
-  this->status_bitmask_sensor_->publish_state(status_bitmask);
-
-  // Create status message
-  std::string status_message;
-
-  for (uint8_t i = 0; i < sizeof(status_messages) / sizeof(status_messages[0]); i++) {
-    if (this->status_bitmask_[status_messages[i].offset] & status_messages[i].bit) {
-      if (!status_message.empty())
-        status_message += ", ";
-      status_message += status_messages[i].message;
-    }
-  }
-
-  if (status_message.empty()) {
-    status_message = "Idle";
-  }
-
-  this->status_sensor_->publish_state(status_message);
-}
-
-void BasenBMS::publish()
-{
-  if (this->state_ != BMS_STATE_PUBLISH)
-    return;
-
-  // Publish sensors in blocks to reduce loop time
-  switch (this->publish_count_) {
-    case 0:
-      voltage_sensor_->publish_state(this->voltage_);
-      current_sensor_->publish_state(this->current_);
-      power_sensor_->publish_state(this->voltage_ * this->current_);
-      capacity_sensor_->publish_state(this->capacity_);
-      soc_sensor_->publish_state(this->soc_);
-      soh_sensor_->publish_state(this->soh_);
-      cycles_sensor_->publish_state(this->cycles_);
-      this->publish_count_++;
-      break;
-    case 1:
-      avg_cell_voltage_sensor_->publish_state(this->cell_avg_voltage_);
-      min_cell_voltage_sensor_->publish_state(this->cell_min_voltage_);
-      max_cell_voltage_sensor_->publish_state(this->cell_max_voltage_);
-      min_cell_index_sensor_->publish_state(this->cell_min_index_);
-      max_cell_index_sensor_->publish_state(this->cell_max_index_);
-      delta_cell_voltage_sensor_->publish_state(this->cell_max_voltage_ - this->cell_min_voltage_);
-      this->publish_count_++;
-      break;
-    case 2:
-      temperature_sensor_[0]->publish_state(this->temperature_[0]);
-      temperature_sensor_[1]->publish_state(this->temperature_[1]);
-      temperature_sensor_[2]->publish_state(this->temperature_[2]);
-      temperature_sensor_[3]->publish_state(this->temperature_[3]);
-      temperature_sensor_[4]->publish_state(this->temperature_mos_);
-      temperature_sensor_[5]->publish_state(this->temperature_ambient_);
-      publish_status();
-      this->publish_count_++;
-      break;
-    default:
-      this->publish_count_ = 0;
-      this->state_ = BMS_STATE_DONE;
-      break;
-  }
-}
-
+/**
+ * @brief Handles and parses parameter data received from the BMS.
+ *
+ * This function processes a buffer containing parameter data, extracts each parameter
+ * based on its type and size, and stores the values in the `params_protect_` array.
+ * It then applies a corresponding operation (multiply, divide, add, subtract, or none)
+ * to each parameter value as specified in the `param_operation` array.
+ * Finally, it publishes the processed parameter values to their associated sensors.
+ *
+ * The function performs several checks:
+ * - Ensures the data length is valid.
+ * - Verifies that each parameter entry has a supported size (2 bytes).
+ * - Checks that the parameter type index is within bounds.
+ * - Confirms that the size of the `param_operation` array matches the size of `params_protect_`.
+ *
+ * @param data   Pointer to the buffer containing parameter data.
+ * @param length Length of the data buffer.
+ */
 void BasenBMS::handle_parameters (const uint8_t *data, uint8_t length) {
   params_received_ = true;  // Mark parameters as received
 

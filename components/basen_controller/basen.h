@@ -31,10 +31,6 @@ class BasenController : public uart::UARTDevice, public Component {
   bool empty_rx (void);
   uint8_t checksum (const uint8_t *data, uint8_t len);
   void send_command(BasenBMS *BMS, const uint16_t command);
-  void handle_data (const uint8_t *header, const uint8_t *data, uint8_t length);
-  void handle_info(const uint8_t *data, uint8_t length);
-  uint8_t handle_cell_voltages(const uint8_t *data, uint8_t length);
-  void handle_parameters (const uint8_t *data, uint8_t length);
 
   void queue_device(BasenBMS *bms);
   void update_device();
@@ -263,8 +259,11 @@ class BasenBMS : public PollingComponent {
   void publish(void);
   void publish_status();
 
+  bool handle_data (const uint8_t *header, const uint8_t *data, uint8_t length);
+  void handle_info(const uint8_t *data, uint8_t length);
+  uint8_t handle_cell_voltages(const uint8_t *data, uint8_t length);
   void handle_parameters (const uint8_t *data, uint8_t length);
-
+  
 private:
   BasenController *parent_;
 
