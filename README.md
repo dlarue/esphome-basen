@@ -34,6 +34,8 @@ or just use the `esphome-basen-bms.yaml` and modify it as needed.
 - barcode: Displays the BMS barcode or serial number.
 - status_bitmask: Shows the raw status bitmask as a string.
 - status: Human-readable status.
+- alarm: Alarm status.
+- fault: Fault status.
 
 - voltage: Battery voltage (V)
 - current: Battery current (A)

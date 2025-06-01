@@ -149,6 +149,12 @@ class BasenBMS : public PollingComponent {
   void set_connected_binary_sensor(binary_sensor::BinarySensor *binary_sensor) {
     connected_binary_sensor_ = binary_sensor;
   }
+  void set_alarm_binary_sensor(binary_sensor::BinarySensor *binary_sensor) {
+    alarm_binary_sensor_ = binary_sensor;
+  }
+  void set_fault_binary_sensor(binary_sensor::BinarySensor *binary_sensor) {
+    fault_binary_sensor_ = binary_sensor;
+  }
 
   void set_voltage_sensor(sensor::Sensor *sensor) {
     voltage_sensor_ = sensor;
@@ -255,7 +261,9 @@ class BasenBMS : public PollingComponent {
   text_sensor::TextSensor *bms_version_text_sensor_{nullptr};
   text_sensor::TextSensor *barcode_text_sensor_{nullptr};
   binary_sensor::BinarySensor *connected_binary_sensor_{nullptr};
-  
+  binary_sensor::BinarySensor *alarm_binary_sensor_{nullptr};
+  binary_sensor::BinarySensor *fault_binary_sensor_{nullptr};
+
   // Sensors for BMS data
   float voltage_{0.0f};
   float current_{0.0f};

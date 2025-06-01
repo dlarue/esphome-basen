@@ -10,9 +10,13 @@ DEPENDENCIES = ["basen_bms"]
 CODEOWNERS = ["GHswitt"]
 
 CONF_CONNECTED = "connected"
+CONF_ALARM = "alarm"
+CONF_FAULT = "fault"
 
 BINARY_SENSORS = [
     CONF_CONNECTED,
+    CONF_ALARM,
+    CONF_FAULT
 ]
 
 CONFIG_SCHEMA = cv.Schema(
@@ -22,6 +26,18 @@ CONFIG_SCHEMA = cv.Schema(
             {
                 cv.GenerateID(): cv.declare_id(binary_sensor.BinarySensor),
                 cv.Optional(CONF_ICON, default=ICON_SIGNAL): cv.icon,
+            }
+        ),
+        cv.Optional(CONF_ALARM): binary_sensor.BINARY_SENSOR_SCHEMA.extend(
+            {
+                cv.GenerateID(): cv.declare_id(binary_sensor.BinarySensor),
+                cv.Optional(CONF_ICON, default="mdi:battery-alert"): cv.icon,
+            }
+        ),
+        cv.Optional(CONF_FAULT): binary_sensor.BINARY_SENSOR_SCHEMA.extend(
+            {
+                cv.GenerateID(): cv.declare_id(binary_sensor.BinarySensor),
+                cv.Optional(CONF_ICON, default="mdi:alert"): cv.icon,
             }
         ),
     }
