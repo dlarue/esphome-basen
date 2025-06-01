@@ -325,7 +325,8 @@ void BasenController::check_timeout ()
     // Timeout while waiting for data.
     ESP_LOGW(TAG, "Timeout (%d ms) while waiting for data (%d < %d) for address %02X", elapsed, this->frame_size_, this->rx_required_, current_->address_);
     current_->timeout_count_++;
-    current_->connected_binary_sensor_->publish_state(false);
+    if (current_->connected_binary_sensor_)
+      current_->connected_binary_sensor_->publish_state(false);
     current_->state_ = BasenBMS::BMS_STATE_DONE;  // Mark as finished
     current_ = NULL;  // Reset current device
     set_state (STATE_BUS_CHECK);
@@ -662,7 +663,8 @@ void BasenBMS::publish_status()
   }
 
   status_bitmask[sizeof (this->status_bitmask_)*3 - 1] = '\0';
-  this->status_bitmask_sensor_->publish_state(status_bitmask);
+  if (this->status_bitmask_sensor_)
+    this->status_bitmask_sensor_->publish_state(status_bitmask);
 
   // Create status message
   std::string status_message;
@@ -679,7 +681,8 @@ void BasenBMS::publish_status()
     status_message = "Idle";
   }
 
-  this->status_sensor_->publish_state(status_message);
+  if (this->status_sensor_)
+    this->status_sensor_->publish_state(status_message);
 }
 
 /**
@@ -706,31 +709,64 @@ void BasenBMS::publish()
   // Publish sensors in blocks to reduce loop time
   switch (this->publish_count_) {
     case 0:
-      voltage_sensor_->publish_state(this->voltage_);
-      current_sensor_->publish_state(this->current_);
-      power_sensor_->publish_state(this->voltage_ * this->current_);
-      capacity_sensor_->publish_state(this->capacity_);
-      soc_sensor_->publish_state(this->soc_);
-      soh_sensor_->publish_state(this->soh_);
-      cycles_sensor_->publish_state(this->cycles_);
+      if (voltage_sensor_)
+        voltage_sensor_->publish_state(this->voltage_);
+      if (current_sensor_)
+        current_sensor_->publish_state(this->current_);
+      if (power_sensor_)
+        power_sensor_->publish_state(this->voltage_ * this->current_);
+      if (capacity_sensor_)
+        capacity_sensor_->publish_state(this->capacity_);
+      if (soc_sensor_)
+        soc_sensor_->publish_state(this->soc_);
+      if (soh_sensor_)
+        soh_sensor_->publish_state(this->soh_);
+      if (cycles_sensor_)
+        cycles_sensor_->publish_state(this->cycles_);
       this->publish_count_++;
       break;
     case 1:
-      avg_cell_voltage_sensor_->publish_state(this->cell_avg_voltage_);
-      min_cell_voltage_sensor_->publish_state(this->cell_min_voltage_);
-      max_cell_voltage_sensor_->publish_state(this->cell_max_voltage_);
-      min_cell_index_sensor_->publish_state(this->cell_min_index_);
-      max_cell_index_sensor_->publish_state(this->cell_max_index_);
-      delta_cell_voltage_sensor_->publish_state(this->cell_max_voltage_ - this->cell_min_voltage_);
+      if (avg_cell_voltage_sensor_)
+        avg_cell_voltage_sensor_->publish_state(this->cell_avg_voltage_);
+      if (min_cell_voltage_sensor_)
+        min_cell_voltage_sensor_->publish_state(this->cell_min_voltage_);
+      if (max_cell_voltage_sensor_)
+        max_cell_voltage_sensor_->publish_state(this->cell_max_voltage_);
+      if (min_cell_index_sensor_)
+        min_cell_index_sensor_->publish_state(this->cell_min_index_);
+      if (max_cell_index_sensor_)
+        max_cell_index_sensor_->publish_state(this->cell_max_index_);
+      if (delta_cell_voltage_sensor_)
+        delta_cell_voltage_sensor_->publish_state(this->cell_max_voltage_ - this->cell_min_voltage_);
       this->publish_count_++;
       break;
     case 2:
-      temperature_sensor_[0]->publish_state(this->temperature_[0]);
-      temperature_sensor_[1]->publish_state(this->temperature_[1]);
-      temperature_sensor_[2]->publish_state(this->temperature_[2]);
-      temperature_sensor_[3]->publish_state(this->temperature_[3]);
-      temperature_sensor_[4]->publish_state(this->temperature_mos_);
-      temperature_sensor_[5]->publish_state(this->temperature_ambient_);
+      for (uint8_t i = 0; i < 8; i++) {
+        if (cell_voltage_sensor_[i])
+          cell_voltage_sensor_[i]->publish_state(this->cell_voltage_[i]);
+      }
+      this->publish_count_++;
+      break;
+    case 3:
+      for (uint8_t i = 8; i < 16; i++) {
+        if (cell_voltage_sensor_[i])
+          cell_voltage_sensor_[i]->publish_state(this->cell_voltage_[i]);
+      }
+      this->publish_count_++;
+      break;
+    case 4:
+      if (temperature_sensor_[0])
+        temperature_sensor_[0]->publish_state(this->temperature_[0]);
+      if (temperature_sensor_[1])
+        temperature_sensor_[1]->publish_state(this->temperature_[1]);
+      if (temperature_sensor_[2])
+        temperature_sensor_[2]->publish_state(this->temperature_[2]);
+      if (temperature_sensor_[3])
+        temperature_sensor_[3]->publish_state(this->temperature_[3]);
+      if (temperature_sensor_[4])
+        temperature_sensor_[4]->publish_state(this->temperature_mos_);
+      if (temperature_sensor_[5])
+        temperature_sensor_[5]->publish_state(this->temperature_ambient_);
       publish_status();
       this->publish_count_++;
       break;
@@ -887,13 +923,17 @@ bool BasenBMS::handle_data (const uint8_t *header, const uint8_t *data, uint8_t 
   switch (header[2]) {
     case COMMAND_BMS_VERSION:
       // BMS Version
-      this->bms_version_text_sensor_->publish_state(std::string(reinterpret_cast<const char *>(data), length));
-      ESP_LOGD(TAG, "Address: %d BMS Version: %s", this->address_, this->bms_version_text_sensor_->get_state().c_str());
+      if (this->bms_version_text_sensor_) {
+        this->bms_version_text_sensor_->publish_state(std::string(reinterpret_cast<const char *>(data), length));
+        ESP_LOGD(TAG, "Address: %d BMS Version: %s", this->address_, this->bms_version_text_sensor_->get_state().c_str());
+      }
       break;
     case COMMAND_BARCODE:
       // Barcode
-      this->barcode_text_sensor_->publish_state(std::string(reinterpret_cast<const char *>(data), length));
-      ESP_LOGD(TAG, "Address: %d Barcode: %s", this->address_, this->barcode_text_sensor_->get_state().c_str());
+      if (this->barcode_text_sensor_) {
+        this->barcode_text_sensor_->publish_state(std::string(reinterpret_cast<const char *>(data), length));
+        ESP_LOGD(TAG, "Address: %d Barcode: %s", this->address_, this->barcode_text_sensor_->get_state().c_str());
+      }
       break;
     case (uint8_t)COMMAND_PARAMETERS:
       if (header[3] == (uint8_t)(COMMAND_PARAMETERS >> 8)) {
@@ -908,8 +948,10 @@ bool BasenBMS::handle_data (const uint8_t *header, const uint8_t *data, uint8_t 
       handle_info(data, length);
       // All data has been updated, mark the device as updated and connected
       this->state_ = BasenBMS::BMS_STATE_PUBLISH;
-      if (!this->connected_binary_sensor_->state)
-        this->connected_binary_sensor_->publish_state(true);
+      if (this->connected_binary_sensor_) {
+        if (!this->connected_binary_sensor_->state)
+          this->connected_binary_sensor_->publish_state(true);
+      }
       return true;
     default:
       ESP_LOGW(TAG, "Unknown command: %02X", header[2]);
@@ -961,6 +1003,8 @@ uint8_t BasenBMS::handle_cell_voltages (const uint8_t *data, uint8_t length) {
     uint16_t cell_voltage = (data[i*2 + 1] << 8) | data[i*2 + 2];
     // Convert to V
     float voltage_V = cell_voltage / 1000.0f;
+    if (i < 16)
+      this->cell_voltage_[i] = voltage_V;
     ESP_LOGV(TAG, "Cell %d voltage: %.3f V", i + 1, voltage_V);
 
     // Update average, min and max voltages

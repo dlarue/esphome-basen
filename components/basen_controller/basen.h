@@ -207,7 +207,14 @@ class BasenBMS : public PollingComponent {
   void set_delta_cell_voltage_sensor(sensor::Sensor *sensor) {
     delta_cell_voltage_sensor_ = sensor;
   }
-  
+  void set_cell_voltage_sensor(sensor::Sensor *sensor, uint8_t index) {
+    if (index >= sizeof(cell_voltage_)/sizeof(cell_voltage_[0])) {
+      ESP_LOGE("BasenBMS", "Invalid cell sensor index: %d", index);
+      return;
+    }
+    cell_voltage_sensor_[index] = sensor;
+  }
+
   void set_param_sensor(sensor::Sensor *sensor, uint8_t index) {
     if (index >= sizeof(param_sensor_)/sizeof(param_sensor_[0])) {
       ESP_LOGE("BasenBMS", "Invalid parameter sensor index: %d", index);
@@ -256,6 +263,7 @@ class BasenBMS : public PollingComponent {
   float soc_{0.0f};
   float soh_{0.0f};
   uint16_t cycles_{0};
+  float cell_voltage_[16]{0.0f};
   float cell_avg_voltage_{0.0f};
   float cell_min_voltage_{0.0f};
   float cell_max_voltage_{0.0f};
@@ -293,6 +301,7 @@ private:
   sensor::Sensor *soc_sensor_{nullptr};
   sensor::Sensor *soh_sensor_{nullptr};
   sensor::Sensor *cycles_sensor_{nullptr};
+  sensor::Sensor *cell_voltage_sensor_[16]{nullptr};
   sensor::Sensor *avg_cell_voltage_sensor_{nullptr};
   sensor::Sensor *min_cell_voltage_sensor_{nullptr};
   sensor::Sensor *max_cell_voltage_sensor_{nullptr};

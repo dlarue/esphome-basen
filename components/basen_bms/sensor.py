@@ -313,6 +313,18 @@ CONFIG_SCHEMA = cv.Schema(
     }
 )
 
+# Cell voltages
+for i in range(1, 17):
+    CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+        cv.Optional(f"cell_voltage_{i:02}"): sensor.sensor_schema(
+            unit_of_measurement=UNIT_VOLT,
+            icon="mdi:alpha-v",
+            accuracy_decimals=3,
+            device_class=DEVICE_CLASS_VOLTAGE,
+            state_class=STATE_CLASS_MEASUREMENT
+        )
+    })
+
 def add_param_sensor(schema, param):
     if "Delay" in param:
         return schema.extend({
@@ -391,6 +403,12 @@ def to_code(config):
             conf = config[key]
             sens = yield sensor.new_sensor(conf)
             cg.add(getattr(hub, f"set_{key}_sensor")(sens))
+    for i in range(1, 17):
+        key = f"cell_voltage_{i:02}"
+        if key in config:
+            conf = config[key]
+            sens = yield sensor.new_sensor(conf)
+            cg.add(getattr(hub, f"set_cell_voltage_sensor")(sens, i-1))
     for index, key in enumerate(PARAMETERS):
         if key in config:
             conf = config[key]

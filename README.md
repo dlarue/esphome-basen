@@ -48,6 +48,7 @@ or just use the `esphome-basen-bms.yaml` and modify it as needed.
 - temperature4: Temperature sensor 4 (°C)
 - temperature_mos: MOSFET temperature (°C)
 - temperature_ambient: Ambient temperature (°C)
+- cell_voltage_01-cell_voltage_16: Cell voltage (V)
 - avg_cell_voltage: Average cell voltage (V)
 - min_cell_voltage: Minimum cell voltage (V)
 - max_cell_voltage: Maximum cell voltage (V)
