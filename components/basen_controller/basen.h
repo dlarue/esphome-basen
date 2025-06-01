@@ -22,6 +22,14 @@ class BasenController : public uart::UARTDevice, public Component {
     this->devices_.push_back(bms);
   }
 
+  void setup () override {
+    // Setup UART
+    this->parent_->set_baud_rate(9600);
+    this->parent_->set_rx_buffer_size(512);
+    this->parent_->set_stop_bits(1);
+    this->parent_->set_data_bits(8);
+    this->parent_->set_parity(uart::UART_CONFIG_PARITY_NONE);
+  }
   void dump_config() override;
   void loop() override;
 
