@@ -36,6 +36,7 @@ or just use the `esphome-basen-bms.yaml` and modify it as needed.
 - status: Human-readable status.
 - alarm: Alarm status.
 - fault: Fault status.
+- error_bitmask: Error bitmask created from status bitmask, see error_bitmask definition below.
 
 - voltage: Battery voltage (V)
 - current: Battery current (A)
@@ -57,6 +58,28 @@ or just use the `esphome-basen-bms.yaml` and modify it as needed.
 - min_cell_index: Index of minimum voltage cell
 - max_cell_index: Index of maximum voltage cell
 - delta_cell_voltage: Difference between max and min cell voltage (V)
+
+### error_bitmask
+The `error_bitmask` is derived from the status bitmask for easier interpretation of error states. Each bit represents a specific alarm or error condition:
+
+| Bit  | Description                              | Binary Mask            | Hex Mask   |
+|------|------------------------------------------|------------------------|------------|
+| 0    | General alarm                            | 0000 0000 0000 0001    | 0x0001     |
+| 1    | Battery high voltage alarm               | 0000 0000 0000 0010    | 0x0002     |
+| 2    | Battery low voltage alarm                | 0000 0000 0000 0100    | 0x0004     |
+| 3    | Battery high temperature alarm           | 0000 0000 0000 1000    | 0x0008     |
+| 4    | Battery low temperature alarm            | 0000 0000 0001 0000    | 0x0010     |
+| 5    | Battery high temperature charge alarm    | 0000 0000 0010 0000    | 0x0020     |
+| 6    | Battery low temperature charge alarm     | 0000 0000 0100 0000    | 0x0040     |
+| 7    | Battery high discharge current alarm     | 0000 0000 1000 0000    | 0x0080     |
+| 8    | Battery high charge current alarm        | 0000 0001 0000 0000    | 0x0100     |
+| 9    | Contactor alarm                          | 0000 0010 0000 0000    | 0x0200     |
+| 10   | Short circuit alarm                      | 0000 0100 0000 0000    | 0x0400     |
+| 11   | BMS internal alarm                       | 0000 1000 0000 0000    | 0x0800     |
+| 12   | Cell imbalance alarm                     | 0001 0000 0000 0000    | 0x1000     |
+| 13   | Reserved                                 | 0010 0000 0000 0000    | 0x2000     |
+| 14   | Reserved                                 | 0100 0000 0000 0000    | 0x4000     |
+| 15   | Reserved                                 | 1000 0000 0000 0000    | 0x8000     |
 
 ## Status messages
 

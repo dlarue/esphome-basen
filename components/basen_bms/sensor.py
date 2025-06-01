@@ -51,6 +51,7 @@ CONF_MAX_CELL_VOLTAGE = "max_cell_voltage"
 CONF_DELTA_CELL_VOLTAGE = "delta_cell_voltage"
 CONF_MIN_CELL_INDEX = "min_cell_index"
 CONF_MAX_CELL_INDEX = "max_cell_index"
+CONF_ERROR_BITMASK = "error_bitmask"
 UNIT_AMPERE_HOUR = "Ah"
 
 SENSORS = [
@@ -72,7 +73,8 @@ SENSORS = [
     CONF_MAX_CELL_VOLTAGE,
     CONF_MIN_CELL_INDEX,
     CONF_MAX_CELL_INDEX,
-    CONF_DELTA_CELL_VOLTAGE
+    CONF_DELTA_CELL_VOLTAGE,
+    CONF_ERROR_BITMASK
 ]
 
 # The index matches the type of the parameter as received from the device.
@@ -309,6 +311,12 @@ CONFIG_SCHEMA = cv.Schema(
             accuracy_decimals=0,
             device_class=DEVICE_CLASS_EMPTY,
             state_class=STATE_CLASS_MEASUREMENT
+        ),
+        cv.Optional(CONF_ERROR_BITMASK): sensor.sensor_schema(
+            unit_of_measurement=UNIT_EMPTY,
+            icon="mdi:alert",
+            accuracy_decimals=0,
+            device_class=DEVICE_CLASS_EMPTY
         ),
     }
 )

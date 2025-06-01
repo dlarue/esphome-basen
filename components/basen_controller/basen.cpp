@@ -17,69 +17,88 @@ constexpr uint8_t COMMAND_BARCODE      = 0x42;
 constexpr uint16_t COMMAND_PARAMETERS  = 0xE043;
 constexpr uint16_t COMMAND_ALARM_PARAMETERS  = 0x43;
 
-// Status messages
+// For ease of use, generate this bit mask from status bit mask
+// # Bit 0     General alarm                                0000 0000 0000 0001         0x0001 
+// # Bit 1     Battery high voltage alarm                   0000 0000 0000 0010         0x0002
+// # Bit 2     Battery low voltage alarm                    0000 0000 0000 0100         0x0004
+// # Bit 3     Battery high temperature alarm               0000 0000 0000 1000         0x0008
+// # Bit 4     Battery low temperature alarm                0000 0000 0001 0000         0x0010
+// # Bit 5     Battery high temperature charge alarm        0000 0000 0010 0000         0x0020
+// # Bit 6     Battery low temperature charge alarm         0000 0000 0100 0000         0x0040
+// # Bit 7     Battery high discharge current alarm         0000 0000 1000 0000         0x0080
+// # Bit 8     Battery high charge current alarm            0000 0001 0000 0000         0x0100
+// # Bit 9     Contactor alarm                              0000 0010 0000 0000         0x0200
+// # Bit 10    Short circuit alarm                          0000 0100 0000 0000         0x0400
+// # Bit 11    BMS internal alarm                           0000 1000 0000 0000         0x0800
+// # Bit 12    Cell imbalance alarm                         0001 0000 0000 0000         0x1000
+// # Bit 13    Reserved                                     0010 0000 0000 0000         0x2000
+// # Bit 14    Reserved                                     0100 0000 0000 0000         0x4000
+// # Bit 15    Reserved                                     1000 0000 0000 0000         0x8000
+
+// Status bit masks, messages and conversion
 static struct {
-  uint8_t     offset;   // Byte offset
-  uint8_t     bit;      // Bit
-  uint8_t     type;     // Type: 1 - Alarm, 2 - Fault
+  uint8_t     offset;     // Byte offset
+  uint8_t     bit;        // Bit
+  uint8_t     type;       // Type: 1 - Alarm, 2 - Fault
+  uint16_t    error_mask; // 16-bit error mask described above
   const char  *message; // Message text
 } status_messages[] = {
-  {0, 0x08, 2, "Cell voltage low fault"},
-  {0, 0x10, 2, "Voltage line break"},
-  {0, 0x20, 2, "Charge MOS fault"},
-  {0, 0x40, 2, "Dischare MOS fault"},
-  {0, 0x80, 2, "Voltage sensor fault"},
-  {1, 0x01, 2, "NTC disconnection"},
-  {1, 0x02, 2, "ADC MOD fault"},
-  {1, 0x04, 2, "Reverse battery"},
-  {1, 0x08, 2, "Hot failure"},
-  {1, 0x10, 1, "Battery locked"},
-  {1, 0x20, 1, "Communication timeout"},
-  {1, 0x40, 1, "SN code failure"},
-  {1, 0x80, 2, "Secondary trip protection"},
-  {2, 0x01, 2, "DISC_OV_TEMP_Protection"},
-  {2, 0x02, 2, "DISC_UN_TEMP_Protection"},
-  {2, 0x40, 1, "536_COM_Timeout"},
-  {3, 0x01, 0, "Charging"},
-  {3, 0x02, 0, "Discharging"},
-  {3, 0x04, 2, "Short Circuit Protection"},
-  {3, 0x08, 2, "Overcurrent Protection"},
-  {3, 0x40, 2, "CHG_OV_TEMP_Protection"},
-  {3, 0x80, 2, "CHG_UN_TEMP_Protection"},
-  {4, 0x01, 2, "Ambient_Low_TEMP_Protection"},
-  {4, 0x02, 2, "ENV_High_TEMP_Protection"},
-  {4, 0x10, 2, "SOC Low protect"},
-  {5, 0x01, 0, "Manual_CHG_MOS_Open"},
-  {5, 0x02, 0, "Manual_CHG_MOS_Off"},
-  {5, 0x04, 0, "Manual_DISC_MOS_Open"},
-  {5, 0x08, 0, "Manual_DISC_MOS_Off"},
-  {5, 0x10, 0, "Heating pad"},
-  {5, 0x20, 2, "MOSFET_OV_TEMP_Protection"},
-  {5, 0x40, 2, "MOSFET_LO_TEMP_Protection"},
-  {5, 0x80, 2, "CHG_Open_TEMP_Too_Low"},
-  {7, 0x01, 1, "SOC_Low_Alarm2"},
-  {7, 0x02, 1, "Vibration Alarm"},
-  {7, 0x04, 0, "Waiting to recharge during a break"},
-  {7, 0x08, 2, "Aerosol fault"},
-  {7, 0x10, 1, "SOH Low Alarm"},
-  {7, 0x20, 2, "NTC short circuit"},
-  {7, 0x40, 1, "Temp_Diff Alarm"},
-  {7, 0x80, 1, "System Lock"},
-  {8, 0x01, 1, "AMB_Over_TEMP_Alarm"},
-  {8, 0x02, 1, "AMB_Low_TEMP_Alarm"},
-  {8, 0x04, 1, "MOS_Over_TEMP_Alarm"},
-  {8, 0x08, 1, "SOC_Low_Alarm"},
-  {8, 0x10, 1, "Vol_DIF_Alarm"},
-  {8, 0x20, 1, "BAT_DISC_Over_TEMP_Alarm"},
-  {8, 0x40, 1, "BAT_DISC_Low_TEMP_Alarm"},
-  {9, 0x01, 1, "Cell_Over_VOL_Alarm"},
-  {9, 0x02, 1, "Cell_Low_VOL_Alarm"},
-  {9, 0x04, 1, "Pack_Over_VOL_Alarm"},
-  {9, 0x08, 1, "Pack_Low_VOL_Alarm"},
-  {9, 0x10, 1, "CHG_Over_CUR_Alarm"},
-  {9, 0x20, 1, "DISC_Over_CURR_Alarm"},
-  {9, 0x40, 1, "BAT_CHG_Over_TEMP_Alarm"},
-  {9, 0x80, 1, "BAT_CHG_Low_TEMP_Alarm"},
+  {0, 0x08, 2, 0x0004, "Cell voltage low fault"},
+  {0, 0x10, 2, 0x0200, "Voltage line break"},
+  {0, 0x20, 2, 0x0801, "Charge MOS fault"},
+  {0, 0x40, 2, 0x0801, "Dischare MOS fault"},
+  {0, 0x80, 2, 0x0800, "Voltage sensor fault"},
+  {1, 0x01, 2, 0x0800, "NTC disconnection"},
+  {1, 0x02, 2, 0x0800, "ADC MOD fault"},
+  {1, 0x04, 2, 0x0200, "Reverse battery"},
+  {1, 0x08, 2, 0x0008, "Hot failure"},
+  {1, 0x10, 1, 0x0001, "Battery locked"},
+  {1, 0x20, 1, 0x0001, "Communication timeout"},
+  {1, 0x40, 1, 0x0001, "SN code failure"},
+  {1, 0x80, 2, 0x0801, "Secondary trip protection"},
+  {2, 0x01, 2, 0x0008, "DISC_OV_TEMP_Protection"},
+  {2, 0x02, 2, 0x0010, "DISC_UN_TEMP_Protection"},
+  {2, 0x40, 1, 0x0800, "536_COM_Timeout"},
+  {3, 0x01, 0, 0x0000, "Charging"},
+  {3, 0x02, 0, 0x0000, "Discharging"},
+  {3, 0x04, 2, 0x0400, "Short Circuit Protection"},
+  {3, 0x08, 2, 0x0080, "Overcurrent Protection"},
+  {3, 0x40, 2, 0x0020, "CHG_OV_TEMP_Protection"},
+  {3, 0x80, 2, 0x0040, "CHG_UN_TEMP_Protection"},
+  {4, 0x01, 2, 0x0010, "Ambient_Low_TEMP_Protection"},
+  {4, 0x02, 2, 0x0008, "ENV_High_TEMP_Protection"},
+  {4, 0x10, 2, 0x0001, "SOC Low protect"},
+  {5, 0x01, 0, 0x0001, "Manual_CHG_MOS_Open"},
+  {5, 0x02, 0, 0x0001, "Manual_CHG_MOS_Off"},
+  {5, 0x04, 0, 0x0001, "Manual_DISC_MOS_Open"},
+  {5, 0x08, 0, 0x0001, "Manual_DISC_MOS_Off"},
+  {5, 0x10, 0, 0x0000, "Heating pad"},
+  {5, 0x20, 2, 0x0008, "MOSFET_OV_TEMP_Protection"},
+  {5, 0x40, 2, 0x0010, "MOSFET_LO_TEMP_Protection"},
+  {5, 0x80, 2, 0x0010, "CHG_Open_TEMP_Too_Low"},
+  {7, 0x01, 1, 0x0001, "SOC_Low_Alarm2"},
+  {7, 0x02, 1, 0x0001, "Vibration Alarm"},
+  {7, 0x04, 0, 0x0001, "Waiting to recharge during a break"},
+  {7, 0x08, 2, 0x0001, "Aerosol fault"},
+  {7, 0x10, 1, 0x0001, "SOH Low Alarm"},
+  {7, 0x20, 2, 0x0800, "NTC short circuit"},
+  {7, 0x40, 1, 0x0001, "Temp_Diff Alarm"},
+  {7, 0x80, 1, 0x0001, "System Lock"},
+  {8, 0x01, 1, 0x0008, "AMB_Over_TEMP_Alarm"},
+  {8, 0x02, 1, 0x0010, "AMB_Low_TEMP_Alarm"},
+  {8, 0x04, 1, 0x0008, "MOS_Over_TEMP_Alarm"},
+  {8, 0x08, 1, 0x0001, "SOC_Low_Alarm"},
+  {8, 0x10, 1, 0x1000, "Vol_DIF_Alarm"},
+  {8, 0x20, 1, 0x0008, "BAT_DISC_Over_TEMP_Alarm"},
+  {8, 0x40, 1, 0x0010, "BAT_DISC_Low_TEMP_Alarm"},
+  {9, 0x01, 1, 0x0002, "Cell_Over_VOL_Alarm"},
+  {9, 0x02, 1, 0x0004, "Cell_Low_VOL_Alarm"},
+  {9, 0x04, 1, 0x0002, "Pack_Over_VOL_Alarm"},
+  {9, 0x08, 1, 0x0004, "Pack_Low_VOL_Alarm"},
+  {9, 0x10, 1, 0x0100, "CHG_Over_CUR_Alarm"},
+  {9, 0x20, 1, 0x0080, "DISC_Over_CURR_Alarm"},
+  {9, 0x40, 1, 0x0020, "BAT_CHG_Over_TEMP_Alarm"},
+  {9, 0x80, 1, 0x0040, "BAT_CHG_Low_TEMP_Alarm"},
 };
 
 // Conversion operations for parameters
@@ -669,6 +688,7 @@ void BasenBMS::publish_status()
 
   // Create status message and alarm/fault status
   std::string status_message;
+  uint16_t error_bitmask = 0;
   bool alarm = false;
   bool fault = false;
 
@@ -681,6 +701,9 @@ void BasenBMS::publish_status()
       // Check for fault
       if (status_messages[i].type == 2)
         fault = true;
+
+      // Create error bitmask
+      error_bitmask |= status_messages[i].error_mask;
 
       // Create status message
       if (!status_message.empty())
@@ -699,6 +722,8 @@ void BasenBMS::publish_status()
   if (this->fault_binary_sensor_) {
     this->fault_binary_sensor_->publish_state(fault);
   }
+  if (this->error_bitmask_sensor_)
+    this->error_bitmask_sensor_->publish_state(error_bitmask);
 
   if (this->status_sensor_)
     this->status_sensor_->publish_state(status_message);

@@ -13,10 +13,16 @@ binary_sensor:
     basen_bms_id: ${basen_bms_id}
     connected:
       name: "${name} Connected"
+    alarm:
+      name: "${name} Alarm"
+    fault:
+      name: "${name} Fault"
 
 sensor:
   - platform: basen_bms
     basen_bms_id: ${basen_bms_id}
+    error_bitmask:
+     name: "${name} Error bitmask"
     voltage:
       name: "${name} voltage"
     current:
