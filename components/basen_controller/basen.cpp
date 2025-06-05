@@ -345,10 +345,16 @@ void BasenController::check_timeout ()
     // Timeout while waiting for data.
     ESP_LOGW(TAG, "Timeout (%d ms) while waiting for data (%d < %d) for address %02X", elapsed, this->frame_size_, this->rx_required_, current_->address_);
     current_->timeout_count_++;
-    if (current_->connected_binary_sensor_)
-      current_->connected_binary_sensor_->publish_state(false);
-    current_->state_ = BasenBMS::BMS_STATE_DONE;  // Mark as finished
-    current_ = NULL;  // Reset current device
+
+    if (retry_++ > 0) {
+      // Second try, mark as offline and move to next device
+      if (current_->connected_binary_sensor_)
+        current_->connected_binary_sensor_->publish_state(false);
+
+      current_->state_ = BasenBMS::BMS_STATE_DONE;  // Mark as finished
+      current_ = NULL;  // Reset current device
+      retry_ = 0;
+    }
     set_state (STATE_BUS_CHECK);
   }
 }
@@ -586,6 +592,7 @@ void BasenController::queue_device(BasenBMS *device) {
   // No, set current device
   device->state_ = BasenBMS::BMS_STATE_UPDATING;
   current_ = device;
+  retry_ = 0;
   ESP_LOGV(TAG, "Active device with address %02X", device->address_);
 }
 

@@ -73,6 +73,7 @@ class BasenController : public uart::UARTDevice, public Component {
 
   uint16_t command_delay_{100};  // Delay between commands in ms
   uint16_t timeout_{2000};       // Timeout for command response in ms
+  uint8_t  retry_{0};            // Retry counter
 
   std::vector<BasenBMS *> devices_;
   BasenBMS *current_{nullptr};  // Pointer to the currently processing BMS
