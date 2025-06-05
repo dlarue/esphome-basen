@@ -734,6 +734,18 @@ void BasenBMS::publish_status()
 
   if (this->status_sensor_)
     this->status_sensor_->publish_state(status_message);
+
+  if (this->cell_balancing_bitmask_sensor_) {
+    std::string balancing;
+    for (uint8_t i = 0; i < 16; i++) {
+      if (this->cell_balancing_ & (1 << i))
+        balancing += '1';
+      else
+        balancing += '0';
+    }
+
+    this->cell_balancing_bitmask_sensor_->publish_state(balancing);
+  }
 }
 
 /**
@@ -1050,12 +1062,19 @@ uint8_t BasenBMS::handle_cell_voltages (const uint8_t *data, uint8_t length) {
   uint8_t min_cell_index = 0;
   uint8_t max_cell_index = 0;
   for (uint8_t i = 0; i < num_cells; i++) {
-    // Each cell voltage is represented by two bytes
+    // Each cell voltage is represented by two bytes, high bit indicates balancing (I assume...)
     uint16_t cell_voltage = (data[i*2 + 1] << 8) | data[i*2 + 2];
+    bool balancing = cell_voltage & 0x8000;
     // Convert to V
-    float voltage_V = cell_voltage / 1000.0f;
-    if (i < 16)
+    float voltage_V = (cell_voltage & 0xFFF) / 1000.0f;
+
+    if (i < 16) {
       this->cell_voltage_[i] = voltage_V;
+      if (balancing)
+        this->cell_balancing_ |= (1 << i);
+      else
+        this->cell_balancing_ &= ~(1 << i);      
+    }
     ESP_LOGV(TAG, "Cell %d voltage: %.3f V", i + 1, voltage_V);
 
     // Update average, min and max voltages

@@ -13,12 +13,14 @@ CONF_BMS_VERSION = "bms_version"
 CONF_BARCODE = "barcode"
 CONF_STATUS_BITMASK = "status_bitmask"
 CONF_STATUS = "status"
+CONF_CELL_BALANCING = "cell_balancing_bitmask"
 
 TEXT_SENSORS = [
     CONF_BMS_VERSION,
     CONF_BARCODE,
     CONF_STATUS_BITMASK,
-    CONF_STATUS
+    CONF_STATUS,
+    CONF_CELL_BALANCING
 ]
 
 
@@ -42,6 +44,9 @@ CONFIG_SCHEMA = cv.Schema(
             {cv.GenerateID(): cv.declare_id(text_sensor.TextSensor), 
              cv.Optional(CONF_ICON, default="mdi:information-outline"): cv.icon
             }
+        ),
+        cv.Optional(CONF_CELL_BALANCING): text_sensor.TEXT_SENSOR_SCHEMA.extend(
+            {cv.GenerateID(): cv.declare_id(text_sensor.TextSensor)}
         ),
     }
 )

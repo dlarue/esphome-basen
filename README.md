@@ -58,6 +58,7 @@ or just use the `esphome-basen-bms.yaml` and modify it as needed.
 - min_cell_index: Index of minimum voltage cell
 - max_cell_index: Index of maximum voltage cell
 - delta_cell_voltage: Difference between max and min cell voltage (V)
+- cell_balancing_bitmask: Bitmask of cells that are balancing
 
 ### error_bitmask
 The `error_bitmask` is derived from the status bitmask for easier interpretation of error states. Each bit represents a specific alarm or error condition:

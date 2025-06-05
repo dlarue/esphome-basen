@@ -154,6 +154,9 @@ class BasenBMS : public PollingComponent {
   void set_status_text_sensor(text_sensor::TextSensor *sensor) {
     status_sensor_ = sensor;
   }
+  void set_cell_balancing_bitmask_text_sensor(text_sensor::TextSensor *sensor) {
+    cell_balancing_bitmask_sensor_ = sensor;
+  }
   void set_error_bitmask_sensor(sensor::Sensor *sensor) {
     error_bitmask_sensor_ = sensor;
   }
@@ -283,6 +286,7 @@ class BasenBMS : public PollingComponent {
   float soc_{0.0f};
   float soh_{0.0f};
   uint16_t cycles_{0};
+  uint16_t cell_balancing_{0};
   float cell_voltage_[16]{0.0f};
   float cell_avg_voltage_{0.0f};
   float cell_min_voltage_{0.0f};
@@ -332,6 +336,7 @@ private:
   sensor::Sensor *error_bitmask_sensor_{nullptr};
   text_sensor::TextSensor *status_bitmask_sensor_{nullptr};
   text_sensor::TextSensor *status_sensor_{nullptr};
+  text_sensor::TextSensor *cell_balancing_bitmask_sensor_{nullptr};
 
   sensor::Sensor *param_sensor_[BASEN_BMS_PROTECT_PARAMETERS]{nullptr};  // Array for protect parameter sensors
   sensor::Sensor *param_alarm_sensor_[BASEN_BMS_ALARM_PARAMETERS]{nullptr};  // Array for alarm parameter sensors
