@@ -27,26 +27,20 @@ TEXT_SENSORS = [
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_BASEN_BMS_ID): cv.use_id(BasenBMS),
-        cv.Optional(CONF_BMS_VERSION): text_sensor.TEXT_SENSOR_SCHEMA.extend(
-            {cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
-             cv.Optional(CONF_ICON, default="mdi:chip"): cv.icon
-            }
+        cv.Optional(CONF_BMS_VERSION): text_sensor.text_sensor_schema(
+            icon="mdi:chip"
         ),
-        cv.Optional(CONF_BARCODE): text_sensor.TEXT_SENSOR_SCHEMA.extend(
-            {cv.GenerateID(): cv.declare_id(text_sensor.TextSensor),
-             cv.Optional(CONF_ICON, default="mdi:barcode"): cv.icon
-            }
+        cv.Optional(CONF_BARCODE): text_sensor.text_sensor_schema(
+            icon="mdi:barcode"
         ),
-        cv.Optional(CONF_STATUS_BITMASK): text_sensor.TEXT_SENSOR_SCHEMA.extend(
-            {cv.GenerateID(): cv.declare_id(text_sensor.TextSensor)}
+        cv.Optional(CONF_STATUS_BITMASK): text_sensor.text_sensor_schema(
+             icon="mdi:information"
         ),
-        cv.Optional(CONF_STATUS): text_sensor.TEXT_SENSOR_SCHEMA.extend(
-            {cv.GenerateID(): cv.declare_id(text_sensor.TextSensor), 
-             cv.Optional(CONF_ICON, default="mdi:information-outline"): cv.icon
-            }
+        cv.Optional(CONF_STATUS): text_sensor.text_sensor_schema(
+            icon="mdi:information-outline"
         ),
-        cv.Optional(CONF_CELL_BALANCING): text_sensor.TEXT_SENSOR_SCHEMA.extend(
-            {cv.GenerateID(): cv.declare_id(text_sensor.TextSensor)}
+        cv.Optional(CONF_CELL_BALANCING): text_sensor.text_sensor_schema(
+            icon="mdi:scale-balance"
         ),
     }
 )

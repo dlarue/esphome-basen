@@ -22,23 +22,14 @@ BINARY_SENSORS = [
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_BASEN_BMS_ID): cv.use_id(BasenBMS),
-        cv.Optional(CONF_CONNECTED): binary_sensor.BINARY_SENSOR_SCHEMA.extend(
-            {
-                cv.GenerateID(): cv.declare_id(binary_sensor.BinarySensor),
-                cv.Optional(CONF_ICON, default=ICON_SIGNAL): cv.icon,
-            }
+        cv.Optional(CONF_CONNECTED): binary_sensor.binary_sensor_schema(
+            icon=ICON_SIGNAL
         ),
-        cv.Optional(CONF_ALARM): binary_sensor.BINARY_SENSOR_SCHEMA.extend(
-            {
-                cv.GenerateID(): cv.declare_id(binary_sensor.BinarySensor),
-                cv.Optional(CONF_ICON, default="mdi:battery-alert"): cv.icon,
-            }
+        cv.Optional(CONF_ALARM): binary_sensor.binary_sensor_schema(
+            icon="mdi:battery-alert"
         ),
-        cv.Optional(CONF_FAULT): binary_sensor.BINARY_SENSOR_SCHEMA.extend(
-            {
-                cv.GenerateID(): cv.declare_id(binary_sensor.BinarySensor),
-                cv.Optional(CONF_ICON, default="mdi:alert"): cv.icon,
-            }
+        cv.Optional(CONF_FAULT): binary_sensor.binary_sensor_schema(
+            icon="mdi:alert"
         ),
     }
 )
